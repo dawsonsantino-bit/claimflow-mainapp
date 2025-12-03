@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { USER_ROLES } from '@/components/job/JobConstants';
-import { base44 } from '@/api/base44Client';
 
 export default function AppSidebar({ user, isOpen, setIsOpen }) {
   const location = useLocation();
