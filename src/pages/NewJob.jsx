@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
 import { JOB_STATUSES } from '@/components/job/JobConstants';
@@ -15,13 +15,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function NewJob() {
   const [user, setUser] = useState(null);
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm();
+  const { register, handleSubmit, control, setError, formState: { errors } } = useForm();
   const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   useEffect(() => {
       const init = async () => {
@@ -34,6 +35,8 @@ export default function NewJob() {
   const onSubmit = async (data) => {
     if (!user) return;
     setIsLoading(true);
+    setSubmitError(null);
+
     try {
       // Check for existing homeowner user
       let homeownerUserId = null;
@@ -45,21 +48,25 @@ export default function NewJob() {
               }
           } catch (e) {
               console.error("Error checking for existing user", e);
+              // Don't block creation if user check fails
           }
       }
 
-      const newJob = {
+      // Ensure defaults for required fields
+      const payload = {
         ...data,
-        company_id: user.company_id, // Assuming user has this, or we might need a selector for admins
-        location_id: user.location_id, // Ditto
-        sales_rep_user_id: user.business_role === 'SalesRep' ? user.id : null,
+        company_id: user.company_id || "default_company",
+        location_id: user.location_id || "default_location",
+        sales_rep_user_id: user.business_role === 'SalesRep' ? user.id : user.id, // Default to creator if not explicitly sales rep
         homeowner_user_id: homeownerUserId,
         current_status: JOB_STATUSES.LeadCreated,
         lead_created_at: new Date().toISOString(),
         created_by: user.email
       };
 
-      const createdJob = await base44.entities.Job.create(newJob);
+      console.log("Creating Job with payload:", payload);
+
+      const createdJob = await base44.entities.Job.create(payload);
       
       // Log initial status history
       await base44.entities.JobStatusHistory.create({
@@ -75,7 +82,13 @@ export default function NewJob() {
     } catch (error) {
       console.error("Failed to create job", error);
       setIsLoading(false);
-      alert("Failed to create job. Please check your inputs and try again.");
+      
+      // Handle specific validation errors if available
+      if (error.message && error.message.includes("validation")) {
+        setSubmitError("Validation failed: " + error.message);
+      } else {
+        setSubmitError(error.message || "Failed to create job. Please check your inputs and try again.");
+      }
     }
   };
 
@@ -99,14 +112,21 @@ export default function NewJob() {
         <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             
+            {submitError && (
+                <div className="p-4 rounded-md bg-red-50 text-red-700 flex items-center gap-2 text-sm">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{submitError}</span>
+                </div>
+            )}
+
             {/* Homeowner Info */}
             <div className="space-y-4">
                 <h3 className="text-sm font-medium text-slate-900 border-b pb-2">Homeowner Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label>Full Name *</Label>
-                        <Input {...register("property_owner_name", { required: true })} placeholder="e.g. John Doe" />
-                        {errors.property_owner_name && <span className="text-xs text-red-500">Required</span>}
+                        <Input {...register("property_owner_name", { required: "Full Name is required" })} placeholder="e.g. John Doe" />
+                        {errors.property_owner_name && <span className="text-xs text-red-500">{errors.property_owner_name.message}</span>}
                     </div>
                     <div className="space-y-2">
                         <Label>Email Address</Label>
@@ -115,8 +135,8 @@ export default function NewJob() {
                     </div>
                     <div className="space-y-2">
                         <Label>Phone Number *</Label>
-                        <Input {...register("property_phone", { required: true })} type="tel" placeholder="(555) 123-4567" />
-                        {errors.property_phone && <span className="text-xs text-red-500">Required</span>}
+                        <Input {...register("property_phone", { required: "Phone Number is required" })} type="tel" placeholder="(555) 123-4567" />
+                        {errors.property_phone && <span className="text-xs text-red-500">{errors.property_phone.message}</span>}
                     </div>
                 </div>
             </div>
@@ -126,25 +146,25 @@ export default function NewJob() {
                 <h3 className="text-sm font-medium text-slate-900 border-b pb-2">Property Information</h3>
                 <div className="space-y-2">
                     <Label>Address Line 1 *</Label>
-                    <Input {...register("property_address_line1", { required: true })} placeholder="123 Main St" />
-                    {errors.property_address_line1 && <span className="text-xs text-red-500">Required</span>}
+                    <Input {...register("property_address_line1", { required: "Address is required" })} placeholder="123 Main St" />
+                    {errors.property_address_line1 && <span className="text-xs text-red-500">{errors.property_address_line1.message}</span>}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                         <Label>City *</Label>
-                        <Input {...register("property_city", { required: true })} />
-                        {errors.property_city && <span className="text-xs text-red-500">Required</span>}
+                        <Input {...register("property_city", { required: "City is required" })} />
+                        {errors.property_city && <span className="text-xs text-red-500">{errors.property_city.message}</span>}
                     </div>
                     <div className="space-y-2">
                         <Label>State *</Label>
-                        <Input {...register("property_state", { required: true })} />
-                        {errors.property_state && <span className="text-xs text-red-500">Required</span>}
+                        <Input {...register("property_state", { required: "State is required" })} />
+                        {errors.property_state && <span className="text-xs text-red-500">{errors.property_state.message}</span>}
                     </div>
                     <div className="space-y-2">
                         <Label>Zip Code *</Label>
-                        <Input {...register("property_zip", { required: true })} />
-                        {errors.property_zip && <span className="text-xs text-red-500">Required</span>}
+                        <Input {...register("property_zip", { required: "Zip Code is required" })} />
+                        {errors.property_zip && <span className="text-xs text-red-500">{errors.property_zip.message}</span>}
                     </div>
                 </div>
             </div>
@@ -155,16 +175,24 @@ export default function NewJob() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label>Loss Type *</Label>
-                        <Select onValueChange={(val) => setValue("loss_type", val)} required>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Fire">Fire</SelectItem>
-                                <SelectItem value="Smoke">Smoke</SelectItem>
-                                <SelectItem value="Fire and Smoke">Fire and Smoke</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <Controller
+                            name="loss_type"
+                            control={control}
+                            rules={{ required: "Loss Type is required" }}
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Fire">Fire</SelectItem>
+                                        <SelectItem value="Smoke">Smoke</SelectItem>
+                                        <SelectItem value="Fire and Smoke">Fire and Smoke</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
+                        {errors.loss_type && <span className="text-xs text-red-500">{errors.loss_type.message}</span>}
                     </div>
                 </div>
                 <div className="space-y-2">
