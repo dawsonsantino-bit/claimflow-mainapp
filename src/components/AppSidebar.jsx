@@ -4,17 +4,15 @@ import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
 import { 
   LayoutDashboard, 
-  Briefcase, 
-  Users, 
-  Building2, 
+  PlusCircle,
   LogOut, 
-  Menu, 
   X,
-  FileText,
-  Shield
+  Shield,
+  UserCog
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { USER_ROLES } from '@/components/job/JobConstants';
+import { base44 } from '@/api/base44Client';
 
 export default function AppSidebar({ user, isOpen, setIsOpen }) {
   const location = useLocation();
