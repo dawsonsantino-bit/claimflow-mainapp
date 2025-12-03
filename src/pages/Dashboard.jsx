@@ -41,7 +41,15 @@ export default function DashboardPage() {
 
   if (!user) return null; // Redirect handled in useEffect
 
-  const role = user.business_role || USER_ROLES.Homeowner; // Default to Homeowner for safety
+  // Auto-assign Homeowner role if missing (Self-service signup flow)
+  if (!user.business_role) {
+      base44.auth.updateMe({ business_role: USER_ROLES.Homeowner })
+        .then(updatedUser => setUser(updatedUser))
+        .catch(e => console.error("Failed to set default role", e));
+      // Continue rendering with default role while update happens
+  }
+
+  const role = user.business_role || USER_ROLES.Homeowner;
 
   switch (role) {
     case USER_ROLES.CompanyAdmin:
