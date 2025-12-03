@@ -79,11 +79,37 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
           <nav className="flex-1 px-2 space-y-1 py-4">
             <NavItem icon={LayoutDashboard} label="Dashboard" path="Dashboard" />
             
-            {/* Role specific quick links could go here, but Dashboard covers it */}
-            
-            {/* Common Links */}
-            {/* Add more links as needed */}
+            {(user.business_role === USER_ROLES.SalesRep || 
+              user.business_role === USER_ROLES.CompanyAdmin || 
+              user.business_role === USER_ROLES.LocationAdmin) && (
+                <NavItem icon={PlusCircle} label="New Job" path="NewJob" />
+            )}
           </nav>
+
+          {/* Dev Role Switcher - For Testing Pipeline Only */}
+          <div className="px-4 py-4 border-t border-slate-100">
+              <div className="text-xs font-semibold text-slate-400 mb-2 flex items-center gap-1">
+                  <UserCog className="w-3 h-3" /> DEV: Switch Role
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                  {Object.values(USER_ROLES).map(role => (
+                      <button
+                          key={role}
+                          onClick={() => {
+                              base44.auth.updateMe({ business_role: role })
+                                  .then(() => window.location.reload());
+                          }}
+                          className={`text-[10px] px-2 py-1 rounded border ${
+                              user.business_role === role 
+                              ? 'bg-slate-900 text-white border-slate-900' 
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                          }`}
+                      >
+                          {role}
+                      </button>
+                  ))}
+              </div>
+          </div>
 
           {/* Footer */}
           <div className="p-4 border-t border-slate-100">
