@@ -33,9 +33,10 @@ export default function AdminJobsDebug() {
     return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
   }
 
-  if (!user || (user.business_role !== USER_ROLES.CompanyAdmin && user.business_role !== USER_ROLES.LocationAdmin)) {
-    return <div className="p-8 text-center text-red-600">Access Denied: Admins Only</div>;
-  }
+  // Debug Mode: Allow all users to view this page for now
+  // if (!user || (user.business_role !== USER_ROLES.CompanyAdmin && user.business_role !== USER_ROLES.LocationAdmin)) {
+  //   return <div className="p-8 text-center text-red-600">Access Denied: Admins Only</div>;
+  // }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">

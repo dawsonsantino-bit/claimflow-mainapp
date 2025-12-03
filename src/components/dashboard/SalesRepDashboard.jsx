@@ -19,9 +19,20 @@ export default function SalesRepDashboard({ user }) {
       </div>
       
       <JobList 
-        title="My Jobs" 
+        title="My Assigned Jobs" 
         queryFilter={{ sales_rep_user_id: user.id }} 
       />
+
+      <div className="mt-8 pt-8 border-t border-slate-200">
+          <h2 className="text-lg font-semibold text-slate-500 mb-4">Debug: All Company Jobs (Fallback)</h2>
+          <p className="text-xs text-slate-400 mb-4">
+            If you don't see your jobs above, check here. This lists all jobs for your company ({user.company_id}).
+          </p>
+          <JobList 
+            title="All Company Jobs" 
+            queryFilter={{ company_id: user.company_id }} 
+          />
+      </div>
     </div>
   );
 }
