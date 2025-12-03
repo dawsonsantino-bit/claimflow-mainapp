@@ -9,8 +9,8 @@ import JobWorkflow from '@/components/job/JobWorkflow';
 import JobActionPanel from '@/components/job/JobActionPanel';
 import JobOverview from '@/components/job/JobOverview';
 import JobPhotos from '@/components/job/JobPhotos';
-// import JobNegotiations from '@/components/job/JobNegotiations'; 
-// import JobPayments from '@/components/job/JobPayments'; 
+import JobNegotiations from '@/components/job/JobNegotiations'; // To create
+import JobPayments from '@/components/job/JobPayments'; // To create
 
 export default function JobDetail() {
   const queryClient = useQueryClient();
@@ -81,17 +81,13 @@ export default function JobDetail() {
            <JobPhotos job={job} user={user} />
         </TabsContent>
 
-        {(isAttorney || (user.business_role && user.business_role.includes('Admin'))) && (
+        {(isAttorney || user.business_role.includes('Admin')) && (
             <>
                 <TabsContent value="negotiation" className="mt-6">
-                    <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-lg border border-dashed">
-                        Negotiation Module
-                    </div>
+                    <JobNegotiations job={job} user={user} />
                 </TabsContent>
                 <TabsContent value="financials" className="mt-6">
-                    <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-lg border border-dashed">
-                        Financials Module
-                    </div>
+                    <JobPayments job={job} user={user} />
                 </TabsContent>
             </>
         )}

@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import { Loader2 } from 'lucide-react';
 
-// Dashboard components
+// Dashboard components (placeholders for now)
 import CompanyAdminDashboard from '@/components/dashboard/CompanyAdminDashboard';
 import LocationAdminDashboard from '@/components/dashboard/LocationAdminDashboard';
 import SalesRepDashboard from '@/components/dashboard/SalesRepDashboard';
@@ -16,7 +16,6 @@ export default function DashboardPage() {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Init User Hook
   useEffect(() => {
     const init = async () => {
       try {
@@ -32,64 +31,6 @@ export default function DashboardPage() {
     init();
   }, []);
 
-  // 2. User Context Hook (Moved up to execute unconditionally)
-  useEffect(() => {
-      if (!user) return;
-
-      const ensureUserContext = async () => {
-          let updates = {};
-          
-          if (!user.business_role) {
-              updates.business_role = USER_ROLES.Homeowner;
-          }
-
-          // For internal roles, ensure company/location exists
-          if (user.business_role !== USER_ROLES.Homeowner && (!user.company_id || !user.location_id)) {
-              try {
-                  let companyId = user.company_id;
-                  if (!companyId) {
-                      const companies = await base44.entities.Company.list({}, '', 1);
-                      if (companies.length > 0) companyId = companies[0].id;
-                      else {
-                          const newCo = await base44.entities.Company.create({ name: "Default Company" });
-                          companyId = newCo.id;
-                      }
-                      updates.company_id = companyId;
-                  }
-
-                  let locationId = user.location_id;
-                  if (!locationId) {
-                      const locations = await base44.entities.Location.list({ company_id: companyId }, '', 1);
-                      if (locations.length > 0) locationId = locations[0].id;
-                      else {
-                          const newLoc = await base44.entities.Location.create({ 
-                              company_id: companyId, 
-                              name: "Main Branch",
-                              address_line1: "123 HQ Blvd",
-                              city: "Cityville",
-                              state: "ST",
-                              zip: "12345"
-                          });
-                          locationId = newLoc.id;
-                      }
-                      updates.location_id = locationId;
-                  }
-              } catch (e) {
-                  console.error("Failed to ensure context", e);
-              }
-          }
-
-          if (Object.keys(updates).length > 0) {
-              console.log("Updating user context:", updates);
-              const updatedUser = await base44.auth.updateMe(updates);
-              setUser(updatedUser);
-          }
-      };
-      
-      ensureUserContext();
-  }, [user?.id]); // Run once when user loads
-
-  // 3. Conditional Rendering (Safe now)
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -99,6 +40,14 @@ export default function DashboardPage() {
   }
 
   if (!user) return null; // Redirect handled in useEffect
+
+  // Auto-assign Homeowner role if missing (Self-service signup flow)
+  if (!user.business_role) {
+      base44.auth.updateMe({ business_role: USER_ROLES.Homeowner })
+        .then(updatedUser => setUser(updatedUser))
+        .catch(e => console.error("Failed to set default role", e));
+      // Continue rendering with default role while update happens
+  }
 
   const role = user.business_role || USER_ROLES.Homeowner;
 

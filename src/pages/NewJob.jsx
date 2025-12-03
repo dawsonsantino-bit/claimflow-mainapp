@@ -38,43 +38,27 @@ export default function NewJob() {
     setSubmitError(null);
 
     try {
-      // ensure valid company and location exist
-      let companyId = user.company_id;
-      let locationId = user.location_id;
-
-      if (!companyId) {
-          const companies = await base44.entities.Company.list({}, '', 1);
-          if (companies.length > 0) {
-              companyId = companies[0].id;
-          } else {
-              const newCo = await base44.entities.Company.create({ name: "Default Company" });
-              companyId = newCo.id;
+      // Check for existing homeowner user
+      let homeownerUserId = null;
+      if (data.property_email) {
+          try {
+              const existingUsers = await base44.entities.User.list({ email: data.property_email });
+              if (existingUsers && existingUsers.length > 0) {
+                  homeownerUserId = existingUsers[0].id;
+              }
+          } catch (e) {
+              console.error("Error checking for existing user", e);
+              // Don't block creation if user check fails
           }
       }
 
-      if (!locationId) {
-          const locations = await base44.entities.Location.list({ company_id: companyId }, '', 1);
-          if (locations.length > 0) {
-              locationId = locations[0].id;
-          } else {
-              const newLoc = await base44.entities.Location.create({ 
-                  company_id: companyId, 
-                  name: "Main Branch",
-                  address_line1: "123 HQ Blvd",
-                  city: "Cityville",
-                  state: "ST",
-                  zip: "12345"
-              });
-              locationId = newLoc.id;
-          }
-      }
-      
+      // Ensure defaults for required fields
       const payload = {
         ...data,
-        company_id: companyId,
-        location_id: locationId,
-        sales_rep_user_id: user.id, 
-        homeowner_user_id: null, 
+        company_id: user.company_id || "default_company",
+        location_id: user.location_id || "default_location",
+        sales_rep_user_id: user.business_role === 'SalesRep' ? user.id : user.id, // Default to creator if not explicitly sales rep
+        homeowner_user_id: homeownerUserId,
         current_status: JOB_STATUSES.LeadCreated,
         lead_created_at: new Date().toISOString(),
         created_by: user.email
