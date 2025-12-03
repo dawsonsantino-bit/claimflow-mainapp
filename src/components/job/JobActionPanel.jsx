@@ -73,13 +73,41 @@ export default function JobActionPanel({ job, user }) {
   };
 
   const generateAIUpdate = async (jobData, fromStatus, toStatus) => {
+    // Define specific prompts for status transitions
+    const PROMPT_MAP = {
+        [`${JOB_STATUSES.ContractSigned}->${JOB_STATUSES.InitialDocumentationComplete}`]: 
+            "Explain to the homeowner that their contract is signed and now we’re thoroughly documenting the damage with photos before any testing or work is done.",
+        [`${JOB_STATUSES.InitialDocumentationComplete}->${JOB_STATUSES.HygienistAssigned}`]: 
+            "Explain that a third-party hygienist has been assigned to take samples, and what that means for them.",
+        [`${JOB_STATUSES.HygienistAssigned}->${JOB_STATUSES.SwabCompletedLabSent}`]: 
+            "Explain that samples have been taken and sent to a lab, and that we’ll update them when results are ready.",
+        [`${JOB_STATUSES.SwabCompletedLabSent}->${JOB_STATUSES.LabResultsProtocolReady}`]: 
+            "Explain that lab results and a protocol for cleaning/restoration are ready, and now their attorney will use this to work with the insurance company.",
+        [`${JOB_STATUSES.LabResultsProtocolReady}->${JOB_STATUSES.InsuranceNegotiation}`]: 
+            "Explain that their attorney is now in negotiation with their insurance company using the lab and protocol as evidence.",
+        [`${JOB_STATUSES.InsuranceNegotiation}->${JOB_STATUSES.InsurancePaidFirstCheck}`]: 
+            "Explain that insurance has made a payment and what that means in terms of progress.",
+        [`${JOB_STATUSES.InsurancePaidFirstCheck}->${JOB_STATUSES.WorkInProgress}`]: 
+            "Explain that restoration work is starting, what kinds of activities are happening, and what access might be needed to the property.",
+        [`${JOB_STATUSES.WorkInProgress}->${JOB_STATUSES.WorkCompleted}`]: 
+            "Explain that main restoration work is done, and that any final inspection or touch-ups will happen next.",
+        [`${JOB_STATUSES.FinalCheckToAttorney}->${JOB_STATUSES.ContractorPaidCaseClosed}`]: 
+            "Explain that funds have been distributed, the contractor has been paid, and the case is now closed."
+    };
+
+    const specificInstruction = PROMPT_MAP[`${fromStatus}->${toStatus}`] || "";
+
     try {
       const prompt = `
-        You are a helpful assistant for a home restoration company. 
+        You are a friendly, professional assistant for a home restoration company (CaseManager).
         A job for customer ${jobData.property_owner_name} has moved from status "${fromStatus}" to "${toStatus}".
         
-        Write a short, friendly, reassuring email update message for the homeowner explaining what this means in plain English.
-        Do not use technical jargon. Be concise (2-3 sentences).
+        ${specificInstruction ? `SPECIFIC INSTRUCTION: ${specificInstruction}` : `Explain what this status change means in plain English.`}
+        
+        Write a short, friendly, reassuring email update message for the homeowner.
+        - Do not use technical jargon. 
+        - Be concise (2-3 sentences max).
+        - Tone: Professional but warm.
         
         Context:
         - Loss Type: ${jobData.loss_type}
@@ -124,6 +152,22 @@ export default function JobActionPanel({ job, user }) {
       }
     } catch (e) {
         console.error("AI generation failed", e);
+        
+        // Fallback if AI fails
+        try {
+            const friendlyStatus = HUMAN_STATUSES[toStatus] || toStatus;
+            await base44.entities.JobUpdate.create({
+                job_id: jobData.id,
+                title: `Update: ${friendlyStatus}`,
+                message: `Your case has moved to the ${friendlyStatus} step. We’ll share more details soon.`,
+                audience: "Homeowner",
+                visible_to_homeowner: true,
+                created_by_user_id: user.id,
+                generated_by_ai: false
+            });
+        } catch (fallbackError) {
+            console.error("Fallback creation failed", fallbackError);
+        }
     }
   };
 
