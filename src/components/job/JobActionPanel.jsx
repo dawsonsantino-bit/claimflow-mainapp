@@ -109,17 +109,18 @@ export default function JobActionPanel({ job, user }) {
               generated_by_ai: true
           });
           
-          // In a real app, we would trigger the email sending here via base44.integrations.Core.SendEmail
-          // waiting for backend function implementation for automatic triggers, but we can simulate:
-          /*
+          // Send email to homeowner
           if (jobData.property_email) {
-              await base44.integrations.Core.SendEmail({
-                  to: jobData.property_email,
-                  subject: result.subject,
-                  body: result.message
-              });
+              try {
+                  await base44.integrations.Core.SendEmail({
+                      to: jobData.property_email,
+                      subject: result.subject,
+                      body: result.message
+                  });
+              } catch (emailError) {
+                  console.error("Failed to send email", emailError);
+              }
           }
-          */
       }
     } catch (e) {
         console.error("AI generation failed", e);

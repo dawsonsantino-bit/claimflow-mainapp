@@ -81,11 +81,7 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
           <nav className="flex-1 px-2 space-y-1 py-4">
             <NavItem icon={LayoutDashboard} label="Dashboard" path="Dashboard" />
             
-            {user.business_role !== USER_ROLES.Homeowner && (
-               // ... keep existing code (add specific role links later) ...
-               // For now I'll just show generic links, specific logic can be added
-               <></>
-            )}
+            {/* Role specific quick links could go here, but Dashboard covers it */}
             
             {/* Common Links */}
             {/* Add more links as needed */}
