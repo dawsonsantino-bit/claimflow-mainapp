@@ -81,13 +81,17 @@ export default function JobDetail() {
            <JobPhotos job={job} user={user} />
         </TabsContent>
 
-        {(isAttorney || user.business_role.includes('Admin')) && (
+        {(isAttorney || (user.business_role && user.business_role.includes('Admin'))) && (
             <>
                 <TabsContent value="negotiation" className="mt-6">
-                    <JobNegotiations job={job} user={user} />
+                    <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-lg border border-dashed">
+                        Negotiation Module
+                    </div>
                 </TabsContent>
                 <TabsContent value="financials" className="mt-6">
-                    <JobPayments job={job} user={user} />
+                    <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-lg border border-dashed">
+                        Financials Module
+                    </div>
                 </TabsContent>
             </>
         )}
