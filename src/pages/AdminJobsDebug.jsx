@@ -65,6 +65,7 @@ export default function AdminJobsDebug() {
                 <TableHead>Property Owner</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Company ID</TableHead>
+                <TableHead>Location ID</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead className="text-right">Action</TableHead>
@@ -78,9 +79,10 @@ export default function AdminJobsDebug() {
                     <TableCell className="font-medium">{job.property_owner_name}</TableCell>
                     <TableCell>{job.property_email}</TableCell>
                     <TableCell className="text-xs text-slate-400">{job.company_id}</TableCell>
+                    <TableCell className="text-xs text-slate-400">{job.location_id}</TableCell>
                     <TableCell>{job.current_status}</TableCell>
                     <TableCell className="text-slate-500 text-xs">
-                      {job.lead_created_at ? format(new Date(job.lead_created_at), 'MMM d, yyyy HH:mm') : '-'}
+                      {job.created_date ? format(new Date(job.created_date), 'MMM d, yyyy HH:mm') : '-'}
                     </TableCell>
                     <TableCell className="text-right">
                       <Link 

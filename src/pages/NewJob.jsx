@@ -53,11 +53,20 @@ export default function NewJob() {
       }
 
       // Ensure defaults for required fields
+      // CRITICAL: We must use the user's actual company_id. 
+      // If user.company_id is missing, we are likely in a bad state, but we'll fallback to the user's ID as a temporary namespace if needed, 
+      // or just fail if strict. For now, we try to be robust.
+      
+      const companyId = user.company_id;
+      if (!companyId) {
+        throw new Error("User has no company_id. Please contact support or update your profile.");
+      }
+
       const payload = {
         ...data,
-        company_id: user.company_id || "default_company",
-        location_id: user.location_id || "default_location",
-        sales_rep_user_id: user.business_role === 'SalesRep' ? user.id : user.id, // Default to creator if not explicitly sales rep
+        company_id: companyId,
+        location_id: user.location_id || "default_location", 
+        sales_rep_user_id: user.business_role === 'SalesRep' ? user.id : user.id, 
         homeowner_user_id: homeownerUserId,
         current_status: JOB_STATUSES.LeadCreated,
         lead_created_at: new Date().toISOString(),

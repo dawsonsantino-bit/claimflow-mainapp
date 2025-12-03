@@ -32,6 +32,8 @@ export default function JobDetail() {
   const { data: job, isLoading } = useQuery({
     queryKey: ['job', jobId],
     queryFn: async () => {
+      // Try to list by ID without any other filters
+      // Note: backend permissions might still filter this if multi-tenant is strict
       const res = await base44.entities.Job.list({ id: jobId });
       return res[0];
     },
@@ -42,11 +44,21 @@ export default function JobDetail() {
     return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>;
   }
 
+  if (job && job.company_id !== user.company_id) {
+    // Just a warning for debugging, don't block
+    console.warn("Job company_id mismatch:", job.company_id, user.company_id);
+  }
+
   if (!job) return (
     <div className="p-8 text-center">
         <h2 className="text-xl font-semibold text-red-600 mb-2">Job not found</h2>
         <p className="text-slate-500">Could not find job with ID: {jobId}</p>
         <p className="text-slate-400 text-sm mt-4">Please ensure you have permission to view this job.</p>
+        <div className="mt-4 p-4 bg-slate-100 rounded text-xs text-left inline-block">
+          <p><strong>Debug Info:</strong></p>
+          <p>User Company: {user.company_id || 'null'}</p>
+          <p>User Location: {user.location_id || 'null'}</p>
+        </div>
     </div>
   );
 
