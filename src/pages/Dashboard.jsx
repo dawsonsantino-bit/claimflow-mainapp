@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import { Loader2 } from 'lucide-react';
 
-// Dashboard components (placeholders for now)
+// Dashboard components
 import CompanyAdminDashboard from '@/components/dashboard/CompanyAdminDashboard';
 import LocationAdminDashboard from '@/components/dashboard/LocationAdminDashboard';
 import SalesRepDashboard from '@/components/dashboard/SalesRepDashboard';
@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 1. Init User Hook
   useEffect(() => {
     const init = async () => {
       try {
@@ -31,18 +32,7 @@ export default function DashboardPage() {
     init();
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-      </div>
-    );
-  }
-
-  if (!user) return null; // Redirect handled in useEffect
-
-  // Auto-assign Homeowner role if missing (Self-service signup flow)
-  // Also ensure company/location context exists for internal roles
+  // 2. User Context Hook (Moved up to execute unconditionally)
   useEffect(() => {
       if (!user) return;
 
@@ -98,6 +88,17 @@ export default function DashboardPage() {
       
       ensureUserContext();
   }, [user?.id]); // Run once when user loads
+
+  // 3. Conditional Rendering (Safe now)
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  if (!user) return null; // Redirect handled in useEffect
 
   const role = user.business_role || USER_ROLES.Homeowner;
 
