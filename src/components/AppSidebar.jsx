@@ -14,7 +14,7 @@ import {
   Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { USER_ROLES } from '@/utils/jobUtils';
+import { USER_ROLES } from '@/components/job/JobConstants';
 
 export default function AppSidebar({ user, isOpen, setIsOpen }) {
   const location = useLocation();
