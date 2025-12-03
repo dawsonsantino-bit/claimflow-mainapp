@@ -77,15 +77,24 @@ export default function NewJob() {
 
       const createdJob = await base44.entities.Job.create(payload);
       
+      if (!createdJob || !createdJob.id) {
+          throw new Error("Job creation failed: Backend returned no valid Job ID. The job may not have been saved.");
+      }
+
       // Log initial status history
-      await base44.entities.JobStatusHistory.create({
-        job_id: createdJob.id,
-        from_status: null,
-        to_status: JOB_STATUSES.LeadCreated,
-        changed_by_user_id: user.id,
-        changed_at: new Date().toISOString(),
-        note: "Initial Lead Creation"
-      });
+      try {
+        await base44.entities.JobStatusHistory.create({
+            job_id: createdJob.id,
+            from_status: null,
+            to_status: JOB_STATUSES.LeadCreated,
+            changed_by_user_id: user.id,
+            changed_at: new Date().toISOString(),
+            note: "Initial Lead Creation"
+        });
+      } catch (historyError) {
+          console.error("Failed to create history log", historyError);
+          // Continue anyway since job was created
+      }
 
       window.location.href = createPageUrl(`JobDetail?id=${createdJob.id}`);
     } catch (error) {
