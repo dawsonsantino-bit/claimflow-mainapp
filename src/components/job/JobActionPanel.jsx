@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, CheckCircle, ArrowRight, Upload, AlertTriangle } from 'lucide-react';
-import { JOB_STATUSES, USER_ROLES } from '@/components/job/JobConstants';
+import { JOB_STATUSES, USER_ROLES, HUMAN_STATUSES } from '@/components/job/JobConstants';
 
 export default function JobActionPanel({ job, user }) {
   const queryClient = useQueryClient();
