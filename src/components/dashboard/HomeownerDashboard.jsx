@@ -11,8 +11,9 @@ import { Loader2, ArrowRight, Home } from 'lucide-react';
 
 export default function HomeownerDashboard({ user }) {
   const { data: jobs, isLoading } = useQuery({
-    queryKey: ['jobs', 'homeowner', user.id],
-    queryFn: () => base44.entities.Job.list({ homeowner_user_id: user.id }),
+    queryKey: ['jobs', 'homeowner', user.email],
+    // Query by property_email since we can't always link IDs at creation
+    queryFn: () => base44.entities.Job.list({ property_email: user.email }),
   });
 
   if (isLoading) {

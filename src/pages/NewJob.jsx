@@ -38,27 +38,15 @@ export default function NewJob() {
     setSubmitError(null);
 
     try {
-      // Check for existing homeowner user
-      let homeownerUserId = null;
-      if (data.property_email) {
-          try {
-              const existingUsers = await base44.entities.User.list({ email: data.property_email });
-              if (existingUsers && existingUsers.length > 0) {
-                  homeownerUserId = existingUsers[0].id;
-              }
-          } catch (e) {
-              console.error("Error checking for existing user", e);
-              // Don't block creation if user check fails
-          }
-      }
-
-      // Ensure defaults for required fields
+      // Note: Non-admin users cannot list Users, so we cannot link homeowner_user_id here.
+      // Instead, we rely on property_email matching in the HomeownerDashboard.
+      
       const payload = {
         ...data,
         company_id: user.company_id || "default_company",
         location_id: user.location_id || "default_location",
-        sales_rep_user_id: user.business_role === 'SalesRep' ? user.id : user.id, // Default to creator if not explicitly sales rep
-        homeowner_user_id: homeownerUserId,
+        sales_rep_user_id: user.id, // Assign current user as Sales Rep (creator)
+        homeowner_user_id: null, // Will be linked via email match or manual admin action
         current_status: JOB_STATUSES.LeadCreated,
         lead_created_at: new Date().toISOString(),
         created_by: user.email

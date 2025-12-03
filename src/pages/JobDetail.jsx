@@ -9,8 +9,8 @@ import JobWorkflow from '@/components/job/JobWorkflow';
 import JobActionPanel from '@/components/job/JobActionPanel';
 import JobOverview from '@/components/job/JobOverview';
 import JobPhotos from '@/components/job/JobPhotos';
-import JobNegotiations from '@/components/job/JobNegotiations'; // To create
-import JobPayments from '@/components/job/JobPayments'; // To create
+// import JobNegotiations from '@/components/job/JobNegotiations'; 
+// import JobPayments from '@/components/job/JobPayments'; 
 
 export default function JobDetail() {
   const queryClient = useQueryClient();
