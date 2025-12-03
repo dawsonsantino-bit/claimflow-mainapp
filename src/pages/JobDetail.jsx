@@ -42,7 +42,13 @@ export default function JobDetail() {
     return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>;
   }
 
-  if (!job) return <div className="p-8 text-center">Job not found</div>;
+  if (!job) return (
+    <div className="p-8 text-center">
+        <h2 className="text-xl font-semibold text-red-600 mb-2">Job not found</h2>
+        <p className="text-slate-500">Could not find job with ID: {jobId}</p>
+        <p className="text-slate-400 text-sm mt-4">Please ensure you have permission to view this job.</p>
+    </div>
+  );
 
   const isHomeowner = user.business_role === USER_ROLES.Homeowner;
   const isAttorney = user.business_role === USER_ROLES.Attorney;

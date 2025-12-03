@@ -83,6 +83,11 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
               user.business_role === USER_ROLES.LocationAdmin) && (
                 <NavItem icon={PlusCircle} label="New Job" path="NewJob" />
             )}
+
+            {(user.business_role === USER_ROLES.CompanyAdmin || 
+              user.business_role === USER_ROLES.LocationAdmin) && (
+                <NavItem icon={LayoutDashboard} label="All Jobs (Debug)" path="AdminJobsDebug" />
+            )}
           </nav>
 
           {/* Dev Role Switcher - For Testing Pipeline Only */}

@@ -3,6 +3,7 @@ import Dashboard from './pages/Dashboard';
 import JobDetail from './pages/JobDetail';
 import HomeownerJobDetail from './pages/HomeownerJobDetail';
 import NewJob from './pages/NewJob';
+import AdminJobsDebug from './pages/AdminJobsDebug';
 import __Layout from './Layout.jsx';
 
 
@@ -12,6 +13,7 @@ export const PAGES = {
     "JobDetail": JobDetail,
     "HomeownerJobDetail": HomeownerJobDetail,
     "NewJob": NewJob,
+    "AdminJobsDebug": AdminJobsDebug,
 }
 
 export const pagesConfig = {
