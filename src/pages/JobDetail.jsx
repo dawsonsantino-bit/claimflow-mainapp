@@ -1,0 +1,97 @@
+import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { USER_ROLES } from '@/components/job/JobConstants';
+
+import JobWorkflow from '@/components/job/JobWorkflow';
+import JobActionPanel from '@/components/job/JobActionPanel';
+import JobOverview from '@/components/job/JobOverview';
+import JobPhotos from '@/components/job/JobPhotos';
+import JobNegotiations from '@/components/job/JobNegotiations'; // To create
+import JobPayments from '@/components/job/JobPayments'; // To create
+
+export default function JobDetail() {
+  const queryClient = useQueryClient();
+  const urlParams = new URLSearchParams(window.location.search);
+  const jobId = urlParams.get('id');
+  
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const init = async () => {
+        try {
+            const u = await base44.auth.me();
+            setUser(u);
+        } catch (e) { console.error(e); }
+    };
+    init();
+  }, []);
+
+  const { data: job, isLoading } = useQuery({
+    queryKey: ['job', jobId],
+    queryFn: async () => {
+      const res = await base44.entities.Job.list({ id: jobId });
+      return res[0];
+    },
+    enabled: !!jobId
+  });
+
+  if (isLoading || !user) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>;
+  }
+
+  if (!job) return <div className="p-8 text-center">Job not found</div>;
+
+  const isHomeowner = user.business_role === USER_ROLES.Homeowner;
+  const isAttorney = user.business_role === USER_ROLES.Attorney;
+
+  return (
+    <div className="space-y-6 pb-12">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">{job.property_owner_name}</h1>
+        <p className="text-slate-500">{job.property_address_line1}, {job.property_city}</p>
+      </div>
+
+      <JobWorkflow currentStatus={job.current_status} />
+
+      {!isHomeowner && (
+        <JobActionPanel job={job} user={user} />
+      )}
+
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="photos">Photos & Docs</TabsTrigger>
+          {/* Only Attorney or Admin sees Negotiations/Payments tabs fully, but Homeowner might see summary */}
+          {(isAttorney || user.business_role.includes('Admin')) && (
+            <>
+                <TabsTrigger value="negotiation">Negotiation</TabsTrigger>
+                <TabsTrigger value="financials">Financials</TabsTrigger>
+            </>
+          )}
+        </TabsList>
+        
+        <TabsContent value="overview" className="mt-6">
+          <JobOverview job={job} user={user} />
+        </TabsContent>
+        
+        <TabsContent value="photos" className="mt-6">
+           <JobPhotos job={job} user={user} />
+        </TabsContent>
+
+        {(isAttorney || user.business_role.includes('Admin')) && (
+            <>
+                <TabsContent value="negotiation" className="mt-6">
+                    <JobNegotiations job={job} user={user} />
+                </TabsContent>
+                <TabsContent value="financials" className="mt-6">
+                    <JobPayments job={job} user={user} />
+                </TabsContent>
+            </>
+        )}
+      </Tabs>
+    </div>
+  );
+}
