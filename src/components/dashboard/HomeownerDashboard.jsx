@@ -58,10 +58,10 @@ export default function HomeownerDashboard({ user }) {
                         Created: {format(new Date(job.created_date), 'MMMM d, yyyy')}
                     </div>
                     <Link 
-                        to={createPageUrl(`JobDetail?id=${job.id}`)}
-                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                        to={createPageUrl(`HomeownerJobDetail?id=${job.id}`)}
+                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-slate-900 text-white hover:bg-slate-800 h-10 px-4 py-2 shadow-sm"
                     >
-                        View Details <ArrowRight className="w-4 h-4 ml-2" />
+                        View Timeline & Updates <ArrowRight className="w-4 h-4 ml-2" />
                     </Link>
                 </div>
               </CardContent>
