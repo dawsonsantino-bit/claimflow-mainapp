@@ -38,15 +38,43 @@ export default function NewJob() {
     setSubmitError(null);
 
     try {
-      // Note: Non-admin users cannot list Users, so we cannot link homeowner_user_id here.
-      // Instead, we rely on property_email matching in the HomeownerDashboard.
+      // ensure valid company and location exist
+      let companyId = user.company_id;
+      let locationId = user.location_id;
+
+      if (!companyId) {
+          const companies = await base44.entities.Company.list({}, '', 1);
+          if (companies.length > 0) {
+              companyId = companies[0].id;
+          } else {
+              const newCo = await base44.entities.Company.create({ name: "Default Company" });
+              companyId = newCo.id;
+          }
+      }
+
+      if (!locationId) {
+          const locations = await base44.entities.Location.list({ company_id: companyId }, '', 1);
+          if (locations.length > 0) {
+              locationId = locations[0].id;
+          } else {
+              const newLoc = await base44.entities.Location.create({ 
+                  company_id: companyId, 
+                  name: "Main Branch",
+                  address_line1: "123 HQ Blvd",
+                  city: "Cityville",
+                  state: "ST",
+                  zip: "12345"
+              });
+              locationId = newLoc.id;
+          }
+      }
       
       const payload = {
         ...data,
-        company_id: user.company_id || "default_company",
-        location_id: user.location_id || "default_location",
-        sales_rep_user_id: user.id, // Assign current user as Sales Rep (creator)
-        homeowner_user_id: null, // Will be linked via email match or manual admin action
+        company_id: companyId,
+        location_id: locationId,
+        sales_rep_user_id: user.id, 
+        homeowner_user_id: null, 
         current_status: JOB_STATUSES.LeadCreated,
         lead_created_at: new Date().toISOString(),
         created_by: user.email
