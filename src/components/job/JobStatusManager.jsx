@@ -8,7 +8,6 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { JOB_STATUSES, HUMAN_STATUSES } from '@/components/job/JobConstants';
 import { toast } from 'sonner';
 import { NotificationService } from '@/components/services/NotificationService';
-import { NotificationService } from '@/utils/notificationService';
 
 const DEMO_ALLOWED_STATUSES = [
   JOB_STATUSES.LeadCreated,
