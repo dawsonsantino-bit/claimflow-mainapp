@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { USER_ROLES } from '@/components/job/JobConstants';
 
@@ -97,7 +97,7 @@ export default function JobDetail() {
                 <TabsTrigger value="financials">Financials</TabsTrigger>
             </>
           )}
-          {!isHomeowner && <TabsTrigger value="documents">AI Docs</TabsTrigger>}
+          {!isHomeowner && <TabsTrigger value="documents" className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-500" /> AI Docs</TabsTrigger>}
         </TabsList>
         
         <TabsContent value="overview" className="mt-6">
