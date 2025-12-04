@@ -35,8 +35,11 @@ export default function JobDetail() {
     queryKey: ['job', jobId],
     queryFn: async () => {
       // Try to list by ID without any other filters
-      // Note: backend permissions might still filter this if multi-tenant is strict
-      const res = await base44.entities.Job.list({ id: jobId });
+      let res = await base44.entities.Job.list({ id: jobId });
+      if (!res || res.length === 0) {
+          // Fallback to _id if id doesn't work (backend specifics)
+          res = await base44.entities.Job.list({ _id: jobId });
+      }
       return res[0];
     },
     enabled: !!jobId
