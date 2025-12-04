@@ -7,6 +7,7 @@ import AdminJobsDebug from './pages/AdminJobsDebug';
 import Admin from './pages/Admin';
 import Sales from './pages/Sales';
 import Homeowner from './pages/Homeowner';
+import SignIn from './pages/SignIn';
 import __Layout from './Layout.jsx';
 
 
@@ -20,6 +21,7 @@ export const PAGES = {
     "Admin": Admin,
     "Sales": Sales,
     "Homeowner": Homeowner,
+    "SignIn": SignIn,
 }
 
 export const pagesConfig = {

@@ -20,9 +20,9 @@ export default function Layout({ children }) {
       } catch (error) {
         console.error("Not logged in", error);
         // Protected route check
-        const loginPath = createPageUrl('Login');
-        // Normalize paths for check (base44 sometimes has varying paths)
-        if (location.pathname !== '/Login' && location.pathname !== '/login') {
+        const loginPath = createPageUrl('SignIn');
+        // Normalize paths for check
+        if (location.pathname !== '/SignIn' && location.pathname !== '/signin' && location.pathname !== '/Login' && location.pathname !== '/login') {
             window.location.href = loginPath;
         }
       } finally {
