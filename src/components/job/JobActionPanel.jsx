@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, CheckCircle, ArrowRight, AlertCircle, FileText, DollarSign } from 'lucide-react';
 import { JOB_STATUSES, USER_ROLES, HUMAN_STATUSES } from '@/components/job/JobConstants';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { NotificationService } from '@/utils/notificationService';
 
 export default function JobActionPanel({ job, user }) {
   const queryClient = useQueryClient();
@@ -180,9 +181,10 @@ export default function JobActionPanel({ job, user }) {
               note: `Transition to ${targetStatus}`
           });
 
-          // 4. AI Update
+          // 4. AI Update & Notifications
           // Async fire-and-forget to not block UI
           generateAIUpdate(job, job.current_status, targetStatus);
+          NotificationService.notifyStatusChange(job, job.current_status, targetStatus, user);
 
           queryClient.invalidateQueries(['job', job.id]);
           setFormData({});

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Sparkles, Users, Save, X, UserCheck } from 'lucide-react';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import { toast } from 'sonner';
+import { NotificationService } from '@/utils/notificationService';
 
 export default function JobTeamManager({ job, user }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -136,6 +137,23 @@ export default function JobTeamManager({ job, user }) {
   const handleSave = async () => {
     try {
         await base44.entities.Job.update(job.id, assignments);
+        
+        // Check for new assignments and notify
+        Object.keys(assignments).forEach(key => {
+            const newId = assignments[key];
+            const oldId = job[key];
+            if (newId && newId !== oldId) {
+                // Map key to role name
+                const roleMap = {
+                    sales_rep_user_id: 'Sales Rep',
+                    hygienist_user_id: 'Hygienist',
+                    attorney_user_id: 'Attorney',
+                    contractor_user_id: 'Contractor'
+                };
+                NotificationService.notifyAssignment(job, roleMap[key], newId, user.id);
+            }
+        });
+
         await queryClient.invalidateQueries({ queryKey: ['job', job.id] });
         setIsEditing(false);
         toast.success("Team assignments updated");

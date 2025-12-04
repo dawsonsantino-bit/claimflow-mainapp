@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { JOB_STATUSES, HUMAN_STATUSES } from '@/components/job/JobConstants';
 import { toast } from 'sonner';
+import { NotificationService } from '@/utils/notificationService';
 
 const DEMO_ALLOWED_STATUSES = [
   JOB_STATUSES.LeadCreated,
@@ -41,6 +42,9 @@ export default function JobStatusManager({ job, user }) {
       await base44.entities.Job.update(job.id, {
         current_status: status
       });
+
+      // Notify
+      await NotificationService.notifyStatusChange(job, job.current_status, status, user);
 
       toast.success("Status updated successfully");
       
