@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { USER_ROLES } from '@/components/job/JobConstants';
 
 import JobWorkflow from '@/components/job/JobWorkflow';
+import JobStatusManager from '@/components/job/JobStatusManager';
 import JobActionPanel from '@/components/job/JobActionPanel';
 import JobOverview from '@/components/job/JobOverview';
 import JobPhotos from '@/components/job/JobPhotos';
@@ -75,7 +76,10 @@ export default function JobDetail() {
       <JobWorkflow currentStatus={job.current_status} />
 
       {!isHomeowner && (
-        <JobActionPanel job={job} user={user} />
+        <>
+            <JobStatusManager job={job} user={user} />
+            <JobActionPanel job={job} user={user} />
+        </>
       )}
 
       <Tabs defaultValue="overview" className="w-full">
