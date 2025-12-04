@@ -34,11 +34,11 @@ export default function JobDetail() {
   const { data: job, isLoading } = useQuery({
     queryKey: ['job', jobId],
     queryFn: async () => {
-      // Try to list by ID without any other filters
-      let res = await base44.entities.Job.list({ id: jobId });
+      // Use filter instead of list for querying by specific fields
+      let res = await base44.entities.Job.filter({ id: jobId });
       if (!res || res.length === 0) {
-          // Fallback to _id if id doesn't work (backend specifics)
-          res = await base44.entities.Job.list({ _id: jobId });
+          // Fallback to _id
+          res = await base44.entities.Job.filter({ _id: jobId });
       }
       return res[0];
     },
