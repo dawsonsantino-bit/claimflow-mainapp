@@ -12,6 +12,7 @@ import JobOverview from '@/components/job/JobOverview';
 import JobPhotos from '@/components/job/JobPhotos';
 import JobNegotiations from '@/components/job/JobNegotiations'; // To create
 import JobPayments from '@/components/job/JobPayments'; // To create
+import JobDocumentCenter from '@/components/job/JobDocumentCenter';
 
 export default function JobDetail() {
   const queryClient = useQueryClient();
@@ -93,6 +94,7 @@ export default function JobDetail() {
                 <TabsTrigger value="financials">Financials</TabsTrigger>
             </>
           )}
+          {!isHomeowner && <TabsTrigger value="documents">AI Docs</TabsTrigger>}
         </TabsList>
         
         <TabsContent value="overview" className="mt-6">
@@ -113,6 +115,9 @@ export default function JobDetail() {
                 </TabsContent>
             </>
         )}
+        <TabsContent value="documents" className="mt-6">
+            <JobDocumentCenter job={job} user={user} />
+        </TabsContent>
       </Tabs>
     </div>
   );
