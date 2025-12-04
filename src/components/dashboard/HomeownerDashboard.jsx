@@ -11,8 +11,8 @@ import { Loader2, ArrowRight, Home } from 'lucide-react';
 
 export default function HomeownerDashboard({ user }) {
   const { data: jobs, isLoading } = useQuery({
-    queryKey: ['jobs', 'homeowner', user.id],
-    queryFn: () => base44.entities.Job.list({ homeowner_user_id: user.id }),
+    queryKey: ['jobs', 'homeowner', user.email],
+    queryFn: () => base44.entities.Job.list({ property_email: user.email }),
   });
 
   if (isLoading) {
@@ -58,10 +58,10 @@ export default function HomeownerDashboard({ user }) {
                         Created: {format(new Date(job.created_date), 'MMMM d, yyyy')}
                     </div>
                     <Link 
-                        to={createPageUrl(`HomeownerJobDetail?id=${job.id}`)}
+                        to={createPageUrl(`JobDetail?id=${job.id}`)}
                         className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-slate-900 text-white hover:bg-slate-800 h-10 px-4 py-2 shadow-sm"
                     >
-                        View Timeline & Updates <ArrowRight className="w-4 h-4 ml-2" />
+                        View <ArrowRight className="w-4 h-4 ml-2" />
                     </Link>
                 </div>
               </CardContent>

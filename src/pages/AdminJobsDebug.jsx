@@ -25,7 +25,7 @@ export default function AdminJobsDebug() {
 
   const { data: jobs, isLoading, error } = useQuery({
     queryKey: ['all-jobs-debug'],
-    queryFn: () => base44.entities.Job.list({}, null, 100), // No filters, list up to 100
+    queryFn: () => base44.entities.Job.list({}, '-created_date', 200), // No filters, list last 200
     enabled: !!user,
   });
 

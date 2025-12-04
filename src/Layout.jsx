@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Loader2, Menu } from 'lucide-react';
 import AppSidebar from '@/components/AppSidebar';
+import { createPageUrl } from '@/utils';
 
 export default function Layout({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const init = async () => {
@@ -15,12 +19,18 @@ export default function Layout({ children }) {
         setUser(currentUser);
       } catch (error) {
         console.error("Not logged in", error);
+        // Protected route check
+        const loginPath = createPageUrl('Login');
+        // Normalize paths for check (base44 sometimes has varying paths)
+        if (location.pathname !== '/Login' && location.pathname !== '/login') {
+            window.location.href = loginPath;
+        }
       } finally {
         setIsLoading(false);
       }
     };
     init();
-  }, []);
+  }, [location.pathname]);
 
   // If loading or not logged in (and not on home page which has its own layout logic typically, 
   // but here Layout wraps everything), handled gracefully.

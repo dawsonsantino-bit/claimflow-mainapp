@@ -4,6 +4,9 @@ import JobDetail from './pages/JobDetail';
 import HomeownerJobDetail from './pages/HomeownerJobDetail';
 import NewJob from './pages/NewJob';
 import AdminJobsDebug from './pages/AdminJobsDebug';
+import Admin from './pages/Admin';
+import Sales from './pages/Sales';
+import Homeowner from './pages/Homeowner';
 import __Layout from './Layout.jsx';
 
 
@@ -14,6 +17,9 @@ export const PAGES = {
     "HomeownerJobDetail": HomeownerJobDetail,
     "NewJob": NewJob,
     "AdminJobsDebug": AdminJobsDebug,
+    "Admin": Admin,
+    "Sales": Sales,
+    "Homeowner": Homeowner,
 }
 
 export const pagesConfig = {
