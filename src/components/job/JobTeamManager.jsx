@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Sparkles, Users, Save, X, UserCheck } from 'lucide-react';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import { toast } from 'sonner';
-import { NotificationService } from '@/utils/notificationService';
+import { NotificationService } from '@/components/services/NotificationService';
 
 export default function JobTeamManager({ job, user }) {
   const [isEditing, setIsEditing] = useState(false);

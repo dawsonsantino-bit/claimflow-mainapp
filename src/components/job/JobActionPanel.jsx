@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, CheckCircle, ArrowRight, AlertCircle, FileText, DollarSign } from 'lucide-react';
 import { JOB_STATUSES, USER_ROLES, HUMAN_STATUSES } from '@/components/job/JobConstants';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { NotificationService } from '@/utils/notificationService';
+import { NotificationService } from '@/components/services/NotificationService';
 
 export default function JobActionPanel({ job, user }) {
   const queryClient = useQueryClient();
