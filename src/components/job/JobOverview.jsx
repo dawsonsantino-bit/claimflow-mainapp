@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { User, MapPin, Calendar, Phone, Mail, FileText, Activity } from 'lucide-react';
 import { HUMAN_STATUSES } from '@/components/job/JobConstants';
 import JobAIInsights from '@/components/job/JobAIInsights';
+import JobTeamManager from '@/components/job/JobTeamManager';
 
 export default function JobOverview({ job, user }) {
   const { data: history } = useQuery({
@@ -80,17 +81,7 @@ export default function JobOverview({ job, user }) {
       </div>
 
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Team Assignments</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-             <InfoRow icon={User} label="Sales Rep" value={job.sales_rep_user_id ? 'Assigned' : 'Pending'} />
-             <InfoRow icon={User} label="Hygienist" value={job.hygienist_user_id ? 'Assigned' : 'Pending'} />
-             <InfoRow icon={User} label="Attorney" value={job.attorney_user_id ? 'Assigned' : 'Pending'} />
-             <InfoRow icon={User} label="Contractor" value={job.contractor_user_id ? 'Assigned' : 'Pending'} />
-          </CardContent>
-        </Card>
+        <JobTeamManager job={job} user={user} />
         
         {job.lab_name && (
             <Card>
