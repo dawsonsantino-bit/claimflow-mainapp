@@ -6,6 +6,7 @@ import { base44 } from '@/api/base44Client';
 import { Badge } from '@/components/ui/badge';
 import { User, MapPin, Calendar, Phone, Mail, FileText, Activity } from 'lucide-react';
 import { HUMAN_STATUSES } from '@/components/job/JobConstants';
+import JobAIInsights from '@/components/job/JobAIInsights';
 
 export default function JobOverview({ job, user }) {
   const { data: history } = useQuery({
@@ -31,6 +32,8 @@ export default function JobOverview({ job, user }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div className="md:col-span-2 space-y-6">
+        <JobAIInsights job={job} history={history} />
+
         <Card>
           <CardHeader>
             <CardTitle>Property Details</CardTitle>
