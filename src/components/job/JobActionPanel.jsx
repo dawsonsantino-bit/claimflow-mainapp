@@ -11,7 +11,7 @@ import { Loader2, CheckCircle, ArrowRight, AlertCircle, FileText, DollarSign } f
 import { JOB_STATUSES, USER_ROLES, HUMAN_STATUSES } from '@/components/job/JobConstants';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NotificationService } from '@/components/services/NotificationService';
-import { generateStatusUpdate } from '@/utils/statusUpdates';
+import { generateStatusUpdate } from '@/components/services/StatusUpdateService';
 
 export default function JobActionPanel({ job, user }) {
   const queryClient = useQueryClient();
