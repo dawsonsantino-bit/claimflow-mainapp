@@ -47,7 +47,7 @@ export default function HomeownerJobDetail() {
     queryKey: ['jobUpdates', jobId],
     queryFn: () => base44.entities.JobUpdate.list({ 
         job_id: jobId, 
-        visible_to_homeowner: true 
+        audience: 'Homeowner' 
     }, { created_date: -1 }), // Newest first
     enabled: !!jobId
   });
@@ -112,7 +112,7 @@ export default function HomeownerJobDetail() {
                               {HUMAN_STATUSES[job.current_status]}
                           </p>
                           <p className="text-sm text-blue-700/80">
-                              {updates && updates.length > 0 ? updates[0].message : "Your case is active. We are working on the current step."}
+                              {updates && updates.length > 0 ? (updates[0].text || updates[0].message) : "Your case is active. We are working on the current step."}
                           </p>
                       </CardContent>
                   </Card>
@@ -182,7 +182,7 @@ export default function HomeownerJobDetail() {
                                       </CardHeader>
                                       <CardContent className="pt-4">
                                           <p className="text-slate-600 whitespace-pre-wrap text-sm leading-relaxed">
-                                              {update.message}
+                                              {update.text || update.message}
                                           </p>
                                       </CardContent>
                                   </Card>

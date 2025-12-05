@@ -12,7 +12,7 @@ export default function JobUpdatesList({ job }) {
         queryFn: () => base44.entities.JobUpdate.list({ 
             job_id: job.id, 
             audience: 'Homeowner' 
-        }, { created_date: -1 }), // Sort by newest first
+        }, { created_date: -1 }, 5), // Sort by newest first, limit 5
     });
 
     if (isLoading) {

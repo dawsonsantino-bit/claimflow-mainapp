@@ -3,20 +3,12 @@ import { HUMAN_STATUSES, JOB_STATUSES } from '@/components/job/JobConstants';
 
 // Deterministic fallbacks for each status
 const FALLBACK_MESSAGES = {
-    [JOB_STATUSES.LeadCreated]: "Your claim has been created. We will be in touch shortly.",
-    [JOB_STATUSES.AssessmentDone]: "Assessment is complete. We are reviewing the details.",
-    [JOB_STATUSES.ContractSigned]: "Contract signed. We are preparing the documentation.",
-    [JOB_STATUSES.InitialDocumentationComplete]: "Initial documentation is complete. Next steps are underway.",
-    [JOB_STATUSES.HygienistAssigned]: "A hygienist has been assigned to your case.",
-    [JOB_STATUSES.SwabCompletedLabSent]: "Samples have been collected and sent to the lab.",
-    [JOB_STATUSES.LabResultsProtocolReady]: "Lab results are in and the protocol is ready.",
-    [JOB_STATUSES.InsuranceNegotiation]: "We are currently negotiating with your insurance provider.",
-    [JOB_STATUSES.InsurancePaidFirstCheck]: "Initial insurance payment has been received.",
-    [JOB_STATUSES.WorkInProgress]: "Restoration work is now in progress.",
-    [JOB_STATUSES.WorkCompleted]: "All restoration work has been completed.",
-    [JOB_STATUSES.FinalCheckToAttorney]: "Final settlement check has been sent to the attorney.",
-    [JOB_STATUSES.ContractorPaidCaseClosed]: "Case is closed. Thank you for working with us.",
-    [JOB_STATUSES.Canceled]: "This case has been canceled."
+    [JOB_STATUSES.LeadCreated]: "We opened your claim and assigned a team. Next: on-site assessment.",
+    [JOB_STATUSES.AssessmentDone]: "Assessment is complete. We’re preparing your documents for signatures.",
+    [JOB_STATUSES.ContractSigned]: "Your agreement is signed. We’re collecting the required 'before' photos and documentation.",
+    [JOB_STATUSES.WorkInProgress]: "Restoration work has started. We’ll update you as major steps complete.",
+    [JOB_STATUSES.WorkCompleted]: "Work is complete. We’re finalizing close-out and confirming the final payment.",
+    [JOB_STATUSES.ContractorPaidCaseClosed]: "Your case is closed. Thank you for working with us."
 };
 
 /**
@@ -27,20 +19,18 @@ const FALLBACK_MESSAGES = {
  * @returns {Promise<String>} The update text
  */
 export async function generateStatusUpdate(job, toStatus) {
-    const fallbackText = FALLBACK_MESSAGES[toStatus] || `Status updated to ${HUMAN_STATUSES[toStatus] || toStatus}.`;
+    const fallbackText = FALLBACK_MESSAGES[toStatus] || `Your claim status was updated to ${HUMAN_STATUSES[toStatus] || toStatus}. We’ll keep you posted.`;
 
     try {
         // Use AI to generate a friendly message
         const prompt = `
-            You are a friendly customer service agent for CaseManager restoration.
-            The job for ${job.property_owner_name} at ${job.property_address_line1} has moved to status: "${HUMAN_STATUSES[toStatus] || toStatus}".
+            You are a calm, professional restoration assistant. 
+            Write 2 short sentences: what just happened, what’s next. No dates or guarantees.
             
-            Write a status update for the homeowner.
-            - Max 2 short sentences.
-            - Friendly and reassuring tone.
-            - No technical jargon.
-            - If status is "WorkInProgress", mention we might need access.
-            - If status is "InsuranceNegotiation", mention their attorney is handling it.
+            Job Context:
+            Owner: ${job.property_owner_name}
+            Location: ${job.property_city}, ${job.property_state}
+            New Status: ${HUMAN_STATUSES[toStatus] || toStatus}
         `;
 
         const result = await base44.integrations.Core.InvokeLLM({
@@ -54,7 +44,7 @@ export async function generateStatusUpdate(job, toStatus) {
         });
 
         if (result && result.update_text) {
-            return result.update_text;
+            return result.update_text.trim();
         }
         
         return fallbackText;
@@ -62,5 +52,44 @@ export async function generateStatusUpdate(job, toStatus) {
     } catch (error) {
         console.error("AI Status Update Generation Failed:", error);
         return fallbackText;
+    }
+}
+
+/**
+ * Orchestrates the status update process: Generates text, creates JobUpdate record, and sends email.
+ * Fire-and-forget style (async).
+ */
+export async function createAndSendStatusUpdate(job, toStatus, user) {
+    try {
+        const text = await generateStatusUpdate(job, toStatus);
+        
+        // Create JobUpdate Record
+        await base44.entities.JobUpdate.create({
+            job_id: job.id,
+            title: `Status Update: ${HUMAN_STATUSES[toStatus]}`,
+            text: text,
+            audience: 'Homeowner',
+            visible_to_homeowner: true,
+            created_by_user_id: user.id,
+            generated_by_ai: true,
+            created_at: new Date().toISOString()
+        });
+
+        // Send Email (if configured)
+        if (job.property_email) {
+            try {
+                await base44.integrations.Core.SendEmail({
+                    to: job.property_email,
+                    subject: `Claim update: ${HUMAN_STATUSES[toStatus]}`,
+                    body: text
+                });
+            } catch (emailError) {
+                // Swallow email errors as requested
+                console.warn("Email dispatch failed (SMTP likely missing or error):", emailError);
+            }
+        }
+
+    } catch (error) {
+        console.error("Failed to process status update workflow:", error);
     }
 }

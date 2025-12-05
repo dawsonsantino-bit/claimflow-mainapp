@@ -50,30 +50,10 @@ export default function JobActionPanel({ job, user }) {
 
   // --- HELPER: AI Update ---
   const triggerUpdateGeneration = (jobData, fromStatus, toStatus) => {
-      generateStatusUpdate(jobData, toStatus).then(text => {
-          base44.entities.JobUpdate.create({
-              job_id: jobData.id,
-              title: `Status Update: ${HUMAN_STATUSES[toStatus]}`,
-              text: text,
-              audience: 'Homeowner',
-              visible_to_homeowner: true,
-              created_by_user_id: user.id,
-              generated_by_ai: true
-          }).then(() => {
-              queryClient.invalidateQueries({ queryKey: ['jobUpdates', jobData.id] });
-              
-              // Send email as well
-              if (jobData.property_email) {
-                  try {
-                    base44.integrations.Core.SendEmail({
-                        to: jobData.property_email,
-                        subject: `Status Update: ${HUMAN_STATUSES[toStatus]}`,
-                        body: text
-                    }).catch(e => console.warn("Email failed (SMTP check):", e)); // Suppress error
-                  } catch (e) {
-                    console.warn("Email dispatch failed:", e);
-                  }
-              }
+      // Use centralized service for consistent behavior
+      import('@/components/services/StatusUpdateService').then(service => {
+          service.createAndSendStatusUpdate(jobData, toStatus, user).then(() => {
+             queryClient.invalidateQueries({ queryKey: ['jobUpdates', jobData.id] });
           });
       });
   };
