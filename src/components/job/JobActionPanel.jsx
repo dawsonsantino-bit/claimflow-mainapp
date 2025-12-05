@@ -11,6 +11,7 @@ import { Loader2, CheckCircle, ArrowRight, AlertCircle, FileText, DollarSign } f
 import { JOB_STATUSES, USER_ROLES, HUMAN_STATUSES } from '@/components/job/JobConstants';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NotificationService } from '@/components/services/NotificationService';
+import { generateStatusUpdate } from '@/utils/statusUpdates';
 
 export default function JobActionPanel({ job, user }) {
   const queryClient = useQueryClient();
@@ -46,99 +47,29 @@ export default function JobActionPanel({ job, user }) {
   };
 
   // --- HELPER: AI Update ---
-  const generateAIUpdate = async (jobData, fromStatus, toStatus) => {
-    const PROMPT_MAP = {
-        [`${JOB_STATUSES.LeadCreated}->${JOB_STATUSES.AssessmentDone}`]: 
-            "Explain that an assessment has been completed and we have a clear understanding of the damage.",
-        [`${JOB_STATUSES.AssessmentDone}->${JOB_STATUSES.ContractSigned}`]: 
-            "Explain that the contract is signed and we are ready to proceed with documentation.",
-        [`${JOB_STATUSES.ContractSigned}->${JOB_STATUSES.InitialDocumentationComplete}`]: 
-            "Explain to the homeowner that we’re thoroughly documenting the damage with photos before any testing or work is done.",
-        [`${JOB_STATUSES.InitialDocumentationComplete}->${JOB_STATUSES.HygienistAssigned}`]: 
-            "Explain that a third-party hygienist has been assigned to take samples, and what that means for them.",
-        [`${JOB_STATUSES.HygienistAssigned}->${JOB_STATUSES.SwabCompletedLabSent}`]: 
-            "Explain that samples have been taken and sent to a lab, and that we’ll update them when results are ready.",
-        [`${JOB_STATUSES.SwabCompletedLabSent}->${JOB_STATUSES.LabResultsProtocolReady}`]: 
-            "Explain that lab results and a protocol for cleaning/restoration are ready, and now their attorney will use this to work with the insurance company.",
-        [`${JOB_STATUSES.LabResultsProtocolReady}->${JOB_STATUSES.InsuranceNegotiation}`]: 
-            "Explain that their attorney is now in negotiation with their insurance company using the lab and protocol as evidence.",
-        [`${JOB_STATUSES.InsuranceNegotiation}->${JOB_STATUSES.InsurancePaidFirstCheck}`]: 
-            "Explain that insurance has made a payment and what that means in terms of progress.",
-        [`${JOB_STATUSES.InsurancePaidFirstCheck}->${JOB_STATUSES.WorkInProgress}`]: 
-            "Explain that restoration work is starting, what kinds of activities are happening, and what access might be needed to the property.",
-        [`${JOB_STATUSES.WorkInProgress}->${JOB_STATUSES.WorkCompleted}`]: 
-            "Explain that main restoration work is done, and that any final inspection or touch-ups will happen next.",
-        [`${JOB_STATUSES.WorkCompleted}->${JOB_STATUSES.FinalCheckToAttorney}`]: 
-            "Explain that the final settlement check has been received by the attorney.",
-        [`${JOB_STATUSES.FinalCheckToAttorney}->${JOB_STATUSES.ContractorPaidCaseClosed}`]: 
-            "Explain that funds have been distributed, the contractor has been paid, and the case is now closed."
-    };
-
-    const specificInstruction = PROMPT_MAP[`${fromStatus}->${toStatus}`] || "";
-
-    try {
-      const prompt = `
-        You are a friendly, professional assistant for a home restoration company (CaseManager).
-        A job for customer ${jobData.property_owner_name} has moved from status "${fromStatus}" to "${toStatus}".
-        
-        ${specificInstruction ? `SPECIFIC INSTRUCTION: ${specificInstruction}` : `Explain what this status change means in plain English.`}
-        
-        Write a short, friendly, reassuring email update message for the homeowner.
-        - Do not use technical jargon. 
-        - Be concise (2-3 sentences max).
-        - Tone: Professional but warm.
-        
-        Context:
-        - Loss Type: ${jobData.loss_type}
-        - Location: ${jobData.property_city}
-      `;
-
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: prompt,
-        response_json_schema: {
-            type: "object",
-            properties: {
-                subject: { type: "string" },
-                message: { type: "string" }
-            }
-        }
-      });
-
-      if (result) {
-          // Create JobUpdate entry
-          await base44.entities.JobUpdate.create({
+  const triggerUpdateGeneration = (jobData, fromStatus, toStatus) => {
+      generateStatusUpdate(jobData, toStatus).then(text => {
+          base44.entities.JobUpdate.create({
               job_id: jobData.id,
-              title: result.subject,
-              message: result.message,
-              audience: "Homeowner",
+              title: `Status Update: ${HUMAN_STATUSES[toStatus]}`,
+              text: text,
+              audience: 'Homeowner',
               visible_to_homeowner: true,
               created_by_user_id: user.id,
               generated_by_ai: true
+          }).then(() => {
+              queryClient.invalidateQueries({ queryKey: ['jobUpdates', jobData.id] });
+              
+              // Send email as well
+              if (jobData.property_email) {
+                  base44.integrations.Core.SendEmail({
+                      to: jobData.property_email,
+                      subject: `Status Update: ${HUMAN_STATUSES[toStatus]}`,
+                      body: text
+                  }).catch(e => console.error("Email failed", e));
+              }
           });
-          
-          // Send email
-          if (jobData.property_email) {
-              base44.integrations.Core.SendEmail({
-                  to: jobData.property_email,
-                  subject: result.subject,
-                  body: result.message
-              }).catch(e => console.error("Email failed", e));
-          }
-      }
-    } catch (e) {
-        console.error("AI generation failed", e);
-        // Fallback
-        const friendlyStatus = HUMAN_STATUSES[toStatus] || toStatus;
-        await base44.entities.JobUpdate.create({
-            job_id: jobData.id,
-            title: `Update: ${friendlyStatus}`,
-            message: `Your case has moved to the ${friendlyStatus} step. We’ll share more details soon.`,
-            audience: "Homeowner",
-            visible_to_homeowner: true,
-            created_by_user_id: user.id,
-            generated_by_ai: false
-        });
-    }
+      });
   };
 
   // --- HELPER: File Upload ---
@@ -183,7 +114,7 @@ export default function JobActionPanel({ job, user }) {
 
           // 4. AI Update & Notifications
           // Async fire-and-forget to not block UI
-          generateAIUpdate(job, job.current_status, targetStatus);
+          triggerUpdateGeneration(job, job.current_status, targetStatus);
           NotificationService.notifyStatusChange(job, job.current_status, targetStatus, user);
 
           queryClient.invalidateQueries(['job', job.id]);

@@ -10,6 +10,7 @@ import JobStatusManager from '@/components/job/JobStatusManager';
 import JobActionPanel from '@/components/job/JobActionPanel';
 import JobOverview from '@/components/job/JobOverview';
 import JobPhotos from '@/components/job/JobPhotos';
+import JobUpdatesList from '@/components/job/JobUpdatesList';
 import JobNegotiations from '@/components/job/JobNegotiations'; // To create
 import JobPayments from '@/components/job/JobPayments'; // To create
 import JobDocumentCenter from '@/components/job/JobDocumentCenter';
@@ -79,6 +80,13 @@ export default function JobDetail() {
       </div>
 
       <JobWorkflow currentStatus={job.current_status} />
+
+      {/* Homeowner Updates Section */}
+      {isHomeowner && (
+         <div className="mb-6">
+             <JobUpdatesList job={job} />
+         </div>
+      )}
 
       {!isHomeowner && (
         <>

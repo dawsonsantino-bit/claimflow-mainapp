@@ -8,6 +8,7 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { JOB_STATUSES, HUMAN_STATUSES } from '@/components/job/JobConstants';
 import { toast } from 'sonner';
 import { NotificationService } from '@/components/services/NotificationService';
+import { generateStatusUpdate } from '@/utils/statusUpdates';
 
 const DEMO_ALLOWED_STATUSES = [
   JOB_STATUSES.LeadCreated,
@@ -45,6 +46,21 @@ export default function JobStatusManager({ job, user }) {
 
       // Notify
       await NotificationService.notifyStatusChange(job, job.current_status, status, user);
+
+      // Auto-generate Homeowner Update (Fire and forget)
+      generateStatusUpdate(job, status).then(text => {
+          base44.entities.JobUpdate.create({
+              job_id: job.id,
+              title: `Status Update: ${HUMAN_STATUSES[status]}`,
+              text: text,
+              audience: 'Homeowner',
+              visible_to_homeowner: true,
+              created_by_user_id: user.id,
+              generated_by_ai: true
+          }).then(() => {
+              queryClient.invalidateQueries({ queryKey: ['jobUpdates', job.id] });
+          });
+      });
 
       toast.success("Status updated successfully");
       
