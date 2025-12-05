@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Upload, Eye, EyeOff, Trash2, FileIcon, ImageIcon } from 'lucide-react';
 import { USER_ROLES } from '@/components/job/JobConstants';
-import { FILE_LIMITS } from '@/utils/config';
+import { FILE_LIMITS } from '@/components/AppConfig';
 import { toast } from 'sonner';
 
 export default function JobPhotos({ job, user }) {

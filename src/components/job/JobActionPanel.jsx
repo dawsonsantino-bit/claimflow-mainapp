@@ -12,7 +12,7 @@ import { JOB_STATUSES, USER_ROLES, HUMAN_STATUSES } from '@/components/job/JobCo
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NotificationService } from '@/components/services/NotificationService';
 import { generateStatusUpdate } from '@/components/services/StatusUpdateService';
-import { FILE_LIMITS } from '@/utils/config';
+import { FILE_LIMITS } from '@/components/AppConfig';
 import { toast } from 'sonner';
 
 export default function JobActionPanel({ job, user }) {

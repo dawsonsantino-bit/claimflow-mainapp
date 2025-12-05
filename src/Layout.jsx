@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Loader2, Menu } from 'lucide-react';
 import AppSidebar from '@/components/AppSidebar';
 import { createPageUrl } from '@/utils';
-import { APP_ENV } from '@/utils/config';
+import { APP_ENV } from '@/components/AppConfig';
 
 export default function Layout({ children }) {
   const [user, setUser] = useState(null);

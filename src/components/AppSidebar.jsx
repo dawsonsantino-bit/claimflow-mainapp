@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { USER_ROLES } from '@/components/job/JobConstants';
+import { APP_ENV } from '@/components/AppConfig';
 
 export default function AppSidebar({ user, isOpen, setIsOpen }) {
   const location = useLocation();
@@ -90,7 +91,7 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
           </nav>
 
           {/* Dev Role Switcher - For Testing Pipeline Only */}
-          {user.business_role === USER_ROLES.CompanyAdmin && (
+          {user.business_role === USER_ROLES.CompanyAdmin && APP_ENV === 'DEV' && (
             <div className="px-4 py-4 border-t border-slate-100">
 
               <div className="text-xs font-semibold text-slate-400 mb-2 flex items-center gap-1">
