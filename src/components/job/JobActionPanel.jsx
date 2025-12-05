@@ -14,6 +14,7 @@ import { NotificationService } from '@/components/services/NotificationService';
 import { generateStatusUpdate } from '@/components/services/StatusUpdateService';
 import { FILE_LIMITS } from '@/components/AppConfig';
 import { toast } from 'sonner';
+import { Permissions } from '@/utils/permissions';
 
 export default function JobActionPanel({ job, user }) {
   const queryClient = useQueryClient();
@@ -43,9 +44,7 @@ export default function JobActionPanel({ job, user }) {
 
   // --- HELPER: Check permissions ---
   const canAct = (allowedRoles) => {
-      return allowedRoles.includes(user.business_role) || 
-             user.business_role === USER_ROLES.CompanyAdmin || 
-             user.business_role === USER_ROLES.LocationAdmin;
+      return Permissions.canPerformAction(user, job, allowedRoles);
   };
 
   // --- HELPER: AI Update ---

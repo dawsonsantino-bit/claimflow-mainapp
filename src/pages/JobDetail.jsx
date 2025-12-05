@@ -4,6 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Loader2, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { USER_ROLES } from '@/components/job/JobConstants';
+import { Permissions } from '@/utils/permissions';
 
 import JobWorkflow from '@/components/job/JobWorkflow';
 import JobStatusManager from '@/components/job/JobStatusManager';
@@ -60,14 +61,31 @@ export default function JobDetail() {
     <div className="p-8 text-center">
         <h2 className="text-xl font-semibold text-red-600 mb-2">Job not found</h2>
         <p className="text-slate-500">Could not find job with ID: {jobId}</p>
-        <p className="text-slate-400 text-sm mt-4">Please ensure you have permission to view this job.</p>
-        <div className="mt-4 p-4 bg-slate-100 rounded text-xs text-left inline-block">
-          <p><strong>Debug Info:</strong></p>
-          <p>User Company: {user.company_id || 'null'}</p>
-          <p>User Location: {user.location_id || 'null'}</p>
-        </div>
     </div>
   );
+
+  // Permission Check
+  if (!Permissions.canViewJob(user, job)) {
+      return (
+        <div className="p-12 text-center">
+            <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <span className="text-2xl">🚫</span>
+            </div>
+            <h2 className="text-xl font-bold text-slate-900 mb-2">Access Denied</h2>
+            <p className="text-slate-500 mb-6">You do not have permission to view this job.</p>
+            <div className="p-4 bg-slate-50 rounded text-sm text-left inline-block max-w-md">
+                <p className="font-semibold mb-2 text-slate-700">Why am I seeing this?</p>
+                <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                    <li>You are signed in as <strong>{user.business_role}</strong></li>
+                    <li>This job is assigned to:</li>
+                    {job.sales_rep_user_id && <li>Sales Rep: {job.sales_rep_user_id === user.id ? '(You)' : job.sales_rep_user_id}</li>}
+                    {job.contractor_user_id && <li>Contractor: {job.contractor_user_id === user.id ? '(You)' : job.contractor_user_id}</li>}
+                    {job.hygienist_user_id && <li>Hygienist: {job.hygienist_user_id === user.id ? '(You)' : job.hygienist_user_id}</li>}
+                </ul>
+            </div>
+        </div>
+      );
+  }
 
   const isHomeowner = user.business_role === USER_ROLES.Homeowner;
   const isAttorney = user.business_role === USER_ROLES.Attorney;
