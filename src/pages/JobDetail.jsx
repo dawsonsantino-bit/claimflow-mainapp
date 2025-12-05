@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Loader2, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { USER_ROLES } from '@/components/job/JobConstants';
-import { Permissions } from '@/utils/permissions';
+import { Permissions } from '@/components/utils/permissions';
 
 import JobWorkflow from '@/components/job/JobWorkflow';
 import JobStatusManager from '@/components/job/JobStatusManager';

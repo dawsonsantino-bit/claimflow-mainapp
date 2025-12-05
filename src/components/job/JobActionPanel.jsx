@@ -14,7 +14,7 @@ import { NotificationService } from '@/components/services/NotificationService';
 import { generateStatusUpdate } from '@/components/services/StatusUpdateService';
 import { FILE_LIMITS } from '@/components/AppConfig';
 import { toast } from 'sonner';
-import { Permissions } from '@/utils/permissions';
+import { Permissions } from '@/components/utils/permissions';
 
 export default function JobActionPanel({ job, user }) {
   const queryClient = useQueryClient();
