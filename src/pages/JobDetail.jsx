@@ -16,6 +16,7 @@ import JobDocumentCenter from '@/components/job/JobDocumentCenter';
 
 export default function JobDetail() {
   const queryClient = useQueryClient();
+  // Using URLSearchParams to get ID from query string (e.g. ?id=123)
   const urlParams = new URLSearchParams(window.location.search);
   const jobId = urlParams.get('id');
   

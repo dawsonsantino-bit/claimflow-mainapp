@@ -66,7 +66,7 @@ export default function NewJob() {
         ...data,
         company_id: companyId,
         location_id: user.location_id || "default_location", 
-        sales_rep_user_id: user.business_role === 'SalesRep' ? user.id : user.id, 
+        sales_rep_user_id: user.business_role === 'SalesRep' ? user.id : null, 
         homeowner_user_id: homeownerUserId,
         current_status: JOB_STATUSES.LeadCreated,
         lead_created_at: new Date().toISOString(),
