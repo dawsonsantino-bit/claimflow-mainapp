@@ -8,6 +8,9 @@ import Admin from './pages/Admin';
 import Sales from './pages/Sales';
 import Homeowner from './pages/Homeowner';
 import SignIn from './pages/SignIn';
+import Users from './pages/Users';
+import InviteAccept from './pages/InviteAccept';
+import ResetPassword from './pages/ResetPassword';
 import __Layout from './Layout.jsx';
 
 
@@ -22,6 +25,9 @@ export const PAGES = {
     "Sales": Sales,
     "Homeowner": Homeowner,
     "SignIn": SignIn,
+    "Users": Users,
+    "InviteAccept": InviteAccept,
+    "ResetPassword": ResetPassword,
 }
 
 export const pagesConfig = {
