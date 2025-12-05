@@ -291,11 +291,11 @@ export default function JobActionPanel({ job, user }) {
       return (
           <ActionCard title="Initial Documentation" description="Upload at least 10 'Before' photos." error={error}>
               <div className="text-sm mb-2">
-                  Current Before Photos: <span className={beforePhotos.length >= 10 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>{beforePhotos.length}/10</span>
+                  Before photos <span className={beforePhotos.length >= 10 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>{beforePhotos.length}/10</span> required
               </div>
               <Button 
                   onClick={() => executeTransition(JOB_STATUSES.InitialDocumentationComplete, {}, () => {
-                      if (beforePhotos.length < 10) return "Please upload at least 10 'Before' photos in the Photos tab.";
+                      if (beforePhotos.length < 10) return `Need at least 10 Before photos to continue. Currently ${beforePhotos.length}/10.`;
                       return true;
                   })}
                   disabled={isLoading}
