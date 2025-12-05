@@ -212,6 +212,22 @@ export default function NewJob() {
                         />
                         {errors.loss_type && <span className="text-xs text-red-500">{errors.loss_type.message}</span>}
                     </div>
+                    <div className="space-y-2">
+                        <Label>Insurance Provider {user?.business_role === 'SalesRep' && '*'}</Label>
+                        <Input 
+                            {...register("insurance_provider", { 
+                                validate: (value) => {
+                                    if (user?.business_role === 'SalesRep' && !value?.trim()) {
+                                        return "Insurance Provider is required.";
+                                    }
+                                    return true;
+                                }
+                            })} 
+                            placeholder="e.g., State Farm" 
+                        />
+                        <p className="text-xs text-slate-400">Required for Sales Reps.</p>
+                        {errors.insurance_provider && <span className="text-xs text-red-500">{errors.insurance_provider.message}</span>}
+                    </div>
                 </div>
                 <div className="space-y-2">
                     <Label>Initial Notes</Label>
