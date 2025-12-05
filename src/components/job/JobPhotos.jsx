@@ -9,6 +9,8 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Upload, Eye, EyeOff, Trash2, FileIcon, ImageIcon } from 'lucide-react';
 import { USER_ROLES } from '@/components/job/JobConstants';
+import { FILE_LIMITS } from '@/utils/config';
+import { toast } from 'sonner';
 
 export default function JobPhotos({ job, user }) {
   const queryClient = useQueryClient();
@@ -23,6 +25,16 @@ export default function JobPhotos({ job, user }) {
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Validation
+    if (file.size > FILE_LIMITS.IMAGE_MAX_SIZE) {
+      toast.error(`File too large. Max ${FILE_LIMITS.IMAGE_MAX_SIZE / 1024 / 1024}MB.`);
+      return;
+    }
+    if (!FILE_LIMITS.ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast.error("Invalid file type. Only JPG, PNG, HEIC allowed.");
+      return;
+    }
 
     setIsUploading(true);
     try {

@@ -4,6 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Loader2, Menu } from 'lucide-react';
 import AppSidebar from '@/components/AppSidebar';
 import { createPageUrl } from '@/utils';
+import { APP_ENV } from '@/utils/config';
 
 export default function Layout({ children }) {
   const [user, setUser] = useState(null);
@@ -71,6 +72,9 @@ export default function Layout({ children }) {
             {children}
           </div>
         </main>
+        <div className="bg-slate-100 border-t border-slate-200 px-4 py-1 text-[10px] text-slate-400 text-right uppercase">
+          Env: {APP_ENV}
+        </div>
       </div>
     </div>
   );

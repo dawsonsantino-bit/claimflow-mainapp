@@ -12,6 +12,8 @@ import { JOB_STATUSES, USER_ROLES, HUMAN_STATUSES } from '@/components/job/JobCo
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NotificationService } from '@/components/services/NotificationService';
 import { generateStatusUpdate } from '@/components/services/StatusUpdateService';
+import { FILE_LIMITS } from '@/utils/config';
+import { toast } from 'sonner';
 
 export default function JobActionPanel({ job, user }) {
   const queryClient = useQueryClient();
@@ -62,11 +64,15 @@ export default function JobActionPanel({ job, user }) {
               
               // Send email as well
               if (jobData.property_email) {
-                  base44.integrations.Core.SendEmail({
-                      to: jobData.property_email,
-                      subject: `Status Update: ${HUMAN_STATUSES[toStatus]}`,
-                      body: text
-                  }).catch(e => console.error("Email failed", e));
+                  try {
+                    base44.integrations.Core.SendEmail({
+                        to: jobData.property_email,
+                        subject: `Status Update: ${HUMAN_STATUSES[toStatus]}`,
+                        body: text
+                    }).catch(e => console.warn("Email failed (SMTP check):", e)); // Suppress error
+                  } catch (e) {
+                    console.warn("Email dispatch failed:", e);
+                  }
               }
           });
       });
@@ -75,6 +81,25 @@ export default function JobActionPanel({ job, user }) {
   // --- HELPER: File Upload ---
   const handleFileUpload = async (file) => {
       if (!file) return null;
+      
+      // Validation
+      const isPdf = file.type === 'application/pdf';
+      const limit = isPdf ? FILE_LIMITS.PDF_MAX_SIZE : FILE_LIMITS.IMAGE_MAX_SIZE;
+      
+      if (file.size > limit) {
+        toast.error(`File too large. Max ${limit / 1024 / 1024}MB.`);
+        return null;
+      }
+      if (isPdf && !FILE_LIMITS.ALLOWED_PDF_TYPES.includes(file.type)) {
+        toast.error("Invalid PDF file.");
+        return null;
+      }
+      // If not PDF, check if image (optional but good practice, though panel allows general uploads in some contexts, limiting to PDF/Image here per req)
+      if (!isPdf && !FILE_LIMITS.ALLOWED_IMAGE_TYPES.includes(file.type)) {
+         toast.error("Invalid file type.");
+         return null;
+      }
+
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       return file_url;
   };

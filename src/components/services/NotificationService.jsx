@@ -15,7 +15,8 @@ const sendEmail = async (to, subject, body) => {
             body
         });
     } catch (error) {
-        console.error("Failed to send email:", error);
+        // Swallow error for "Wire SMTP env... if SMTP missing... don't error" requirement
+        console.warn("Email sending failed (SMTP missing or misconfigured):", error);
     }
 };
 

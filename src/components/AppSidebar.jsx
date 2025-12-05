@@ -84,14 +84,15 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
                 <NavItem icon={PlusCircle} label="New Job" path="NewJob" />
             )}
 
-            {(user.business_role === USER_ROLES.CompanyAdmin || 
-              user.business_role === USER_ROLES.LocationAdmin) && (
+            {user.business_role === USER_ROLES.CompanyAdmin && (
                 <NavItem icon={LayoutDashboard} label="All Jobs (Debug)" path="AdminJobsDebug" />
             )}
           </nav>
 
           {/* Dev Role Switcher - For Testing Pipeline Only */}
-          <div className="px-4 py-4 border-t border-slate-100">
+          {user.business_role === USER_ROLES.CompanyAdmin && (
+            <div className="px-4 py-4 border-t border-slate-100">
+
               <div className="text-xs font-semibold text-slate-400 mb-2 flex items-center gap-1">
                   <UserCog className="w-3 h-3" /> DEV: Switch Role
               </div>
@@ -113,7 +114,8 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
                       </button>
                   ))}
               </div>
-          </div>
+            </div>
+          )}
 
           {/* Footer */}
           <div className="p-4 border-t border-slate-100">
