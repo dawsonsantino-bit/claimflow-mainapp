@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import { createPageUrl } from '@/utils';
+import { isDev } from '@/components/AppConfig';
 
 export default function SignIn() {
   const navigate = useNavigate();
@@ -69,41 +70,56 @@ export default function SignIn() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">ClaimFlow v2 Demo</CardTitle>
-          <CardDescription>Select a role to sign in</CardDescription>
+          <CardTitle className="text-2xl font-bold">ClaimFlow v2</CardTitle>
+          <CardDescription>{isDev() ? 'Select a role to sign in (Demo Mode)' : 'Sign in to access your dashboard'}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <Button 
-            size="lg" 
-            className="w-full bg-slate-900 hover:bg-slate-800"
-            onClick={() => handleLogin(USER_ROLES.CompanyAdmin, 'admin@demo.com')}
-          >
-            Sign in as Admin
-          </Button>
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+          {isDev() ? (
+            <>
+              <Button 
+                size="lg" 
+                className="w-full bg-slate-900 hover:bg-slate-800"
+                onClick={() => handleLogin(USER_ROLES.CompanyAdmin, 'admin@demo.com')}
+              >
+                Sign in as Admin
+              </Button>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-muted-foreground">Or</span>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="w-full"
+                onClick={() => handleLogin(USER_ROLES.SalesRep, 'salesrep@demo.com')}
+              >
+                Sign in as Sales Rep
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="lg" 
+                className="w-full text-slate-600"
+                onClick={() => handleLogin(USER_ROLES.Homeowner, 'homeowner@demo.com')}
+              >
+                Sign in as Homeowner
+              </Button>
+            </>
+          ) : (
+            <div className="text-center py-4">
+              <Button 
+                size="lg" 
+                className="w-full bg-slate-900"
+                onClick={() => base44.auth.redirectToLogin(window.location.origin + '/dashboard')}
+              >
+                Login via SSO
+              </Button>
+              <p className="text-sm text-slate-500 mt-4">Demo login disabled in Production.</p>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-muted-foreground">Or</span>
-            </div>
-          </div>
-          <Button 
-            variant="outline" 
-            size="lg" 
-            className="w-full"
-            onClick={() => handleLogin(USER_ROLES.SalesRep, 'salesrep@demo.com')}
-          >
-            Sign in as Sales Rep
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="lg" 
-            className="w-full text-slate-600"
-            onClick={() => handleLogin(USER_ROLES.Homeowner, 'homeowner@demo.com')}
-          >
-            Sign in as Homeowner
-          </Button>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -59,6 +59,18 @@ export default function JobStatusManager({ job, user }) {
               generated_by_ai: true
           }).then(() => {
               queryClient.invalidateQueries({ queryKey: ['jobUpdates', job.id] });
+              // Email Logic (Fire-and-forget, warn on error)
+              if (job.property_email) {
+                  try {
+                    base44.integrations.Core.SendEmail({
+                        to: job.property_email,
+                        subject: `Status Update: ${HUMAN_STATUSES[status]}`,
+                        body: text
+                    }).catch(e => console.warn("Email failed (SMTP check):", e));
+                  } catch (e) {
+                    console.warn("Email dispatch failed:", e);
+                  }
+              }
           });
       });
 
