@@ -5,9 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Upload, Eye, EyeOff, Trash2, FileIcon, ImageIcon } from 'lucide-react';
+import { Loader2, Eye, EyeOff, FileIcon } from 'lucide-react';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import { FILE_LIMITS } from '@/components/AppConfig';
 import { toast } from 'sonner';
@@ -51,7 +50,7 @@ export default function JobPhotos({ job, user }) {
       queryClient.invalidateQueries(['jobPhotos', job.id]);
     } catch (error) {
       console.error("Upload failed", error);
-      alert("Failed to upload photo");
+      toast.error("Failed to upload photo");
     } finally {
       setIsUploading(false);
     }
