@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Copy, Check } from 'lucide-react';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import { toast } from 'sonner';
-import { generatePassword } from '@/utils/password'; // We'll create this small utility inline or just function
+// Password utility is implemented inline below
 
 export default function UsersPage() {
     const queryClient = useQueryClient();
