@@ -77,7 +77,18 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
 
           {/* Nav Links */}
           <nav className="flex-1 px-2 space-y-1 py-4">
-            <NavItem icon={LayoutDashboard} label="Dashboard" path="Dashboard" />
+            {(user.business_role === USER_ROLES.CompanyAdmin || user.business_role === USER_ROLES.LocationAdmin) && (
+                <NavItem icon={LayoutDashboard} label="Dashboard" path="Admin" />
+            )}
+            {user.business_role === USER_ROLES.SalesRep && (
+                <NavItem icon={LayoutDashboard} label="Dashboard" path="Sales" />
+            )}
+            {user.business_role === USER_ROLES.Homeowner && (
+                <NavItem icon={LayoutDashboard} label="Dashboard" path="Homeowner" />
+            )}
+            {!([USER_ROLES.CompanyAdmin, USER_ROLES.LocationAdmin, USER_ROLES.SalesRep, USER_ROLES.Homeowner].includes(user.business_role)) && (
+                <NavItem icon={LayoutDashboard} label="Dashboard" path="Dashboard" />
+            )}
             
             {(user.business_role === USER_ROLES.SalesRep || 
               user.business_role === USER_ROLES.CompanyAdmin || 
