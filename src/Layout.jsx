@@ -1,101 +1,59 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
-import { Loader2, Menu } from 'lucide-react';
+import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 import AppSidebar from '@/components/AppSidebar';
-import { createPageUrl } from '@/utils';
 import { APP_ENV } from '@/components/AppConfig';
+import { AuthProvider, useAuth } from '@/components/auth/AuthProvider';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function Layout({ children }) {
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  return (
+    <AuthProvider>
+      <InnerLayout>{children}</InnerLayout>
+    </AuthProvider>
+  );
+}
+
+function InnerLayout({ children }) {
   const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        
-        // --- AUTO-ASSIGN COMPANY LOGIC ---
-        if (currentUser && !currentUser.company_id && currentUser.email) {
-            try {
-                const domain = currentUser.email.split('@')[1];
-                if (domain) {
-                    const domains = await base44.entities.CompanyDomain.list({ domain: domain });
-                    if (domains && domains.length > 0) {
-                        const match = domains[0];
-                        // Auto-assign
-                        await base44.auth.updateMe({ company_id: match.company_id });
-                        currentUser.company_id = match.company_id; // Update local state
-                    }
-                }
-            } catch (assignError) {
-                console.warn("Auto-assign company failed", assignError);
-            }
-        }
-        // ---------------------------------
-
-        setUser(currentUser);
-      } catch (error) {
-        console.error("Not logged in", error);
-        // Protected route check
-        const loginPath = createPageUrl('SignIn');
-        // Normalize paths for check
-        if (location.pathname !== '/SignIn' && location.pathname !== '/signin' && location.pathname !== '/Login' && location.pathname !== '/login') {
-            window.location.href = loginPath;
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    init();
-  }, [location.pathname]);
-
-  // If loading or not logged in (and not on home page which has its own layout logic typically, 
-  // but here Layout wraps everything), handled gracefully.
-  // Actually, for pages that don't need sidebar (like Home), we might want to conditional render.
-  // But assuming this Layout wraps dashboard pages primarily.
+  const { currentUser } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-      </div>
-    );
-  }
+  // Check for public routes
+  const path = location.pathname.toLowerCase();
+  const isPublic = path === '/signin' || path === '/login';
 
-  // If not logged in, render children (likely Home page or Redirect)
-  if (!user) {
+  if (isPublic) {
     return <main className="min-h-screen bg-slate-50">{children}</main>;
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <AppSidebar user={user} isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile Header */}
-        <header className="lg:hidden bg-white border-b border-slate-200 h-16 flex items-center px-4 sticky top-0 z-30">
-          <button 
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 -ml-2 text-slate-600"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <span className="ml-3 font-bold text-slate-900">CaseManager</span>
-        </header>
+    <ProtectedRoute>
+      <div className="flex min-h-screen bg-slate-50">
+        <AppSidebar user={currentUser} isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+        
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Mobile Header */}
+          <header className="lg:hidden bg-white border-b border-slate-200 h-16 flex items-center px-4 sticky top-0 z-30">
+            <button 
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 -ml-2 text-slate-600"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <span className="ml-3 font-bold text-slate-900">CaseManager</span>
+          </header>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8">
-          <div className="max-w-7xl mx-auto">
-            {children}
+          <main className="flex-1 overflow-y-auto p-4 lg:p-8">
+            <div className="max-w-7xl mx-auto">
+              {children}
+            </div>
+          </main>
+          <div className="bg-slate-100 border-t border-slate-200 px-4 py-1 text-[10px] text-slate-400 text-right uppercase">
+            Env: {APP_ENV}
           </div>
-        </main>
-        <div className="bg-slate-100 border-t border-slate-200 px-4 py-1 text-[10px] text-slate-400 text-right uppercase">
-          Env: {APP_ENV}
         </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }
