@@ -12,6 +12,7 @@ import Users from './pages/Users';
 import InviteAccept from './pages/InviteAccept';
 import ResetPassword from './pages/ResetPassword';
 import Owner from './pages/Owner';
+import CompanySettings from './pages/CompanySettings';
 import __Layout from './Layout.jsx';
 
 
@@ -30,6 +31,7 @@ export const PAGES = {
     "InviteAccept": InviteAccept,
     "ResetPassword": ResetPassword,
     "Owner": Owner,
+    "CompanySettings": CompanySettings,
 }
 
 export const pagesConfig = {

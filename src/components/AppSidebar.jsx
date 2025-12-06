@@ -89,6 +89,7 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
                 <>
                     <NavItem icon={LayoutDashboard} label="All Jobs (Debug)" path="AdminJobsDebug" />
                     <NavItem icon={UserCog} label="Users" path="Users" />
+                    <NavItem icon={Shield} label="Company Settings" path="CompanySettings" />
                 </>
             )}
 

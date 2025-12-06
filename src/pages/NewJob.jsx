@@ -20,14 +20,21 @@ import { Link } from 'react-router-dom';
 
 export default function NewJob() {
   const [user, setUser] = useState(null);
-  const { register, handleSubmit, control, setError, formState: { errors } } = useForm();
+  const { register, handleSubmit, control, setError, formState: { errors }, watch } = useForm();
   const [isLoading, setIsLoading] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [company, setCompany] = useState(null);
 
   useEffect(() => {
       const init = async () => {
-          const u = await base44.auth.me();
-          setUser(u);
+          try {
+              const u = await base44.auth.me();
+              setUser(u);
+              if (u?.company_id) {
+                  const c = await base44.entities.Company.filter({ id: u.company_id });
+                  if (c && c[0]) setCompany(c[0]);
+              }
+          } catch (e) { console.error(e); }
       };
       init();
   }, []);
@@ -253,9 +260,17 @@ export default function NewJob() {
                                         <SelectValue placeholder="Select type" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="Fire">Fire</SelectItem>
-                                        <SelectItem value="Smoke">Smoke</SelectItem>
-                                        <SelectItem value="Fire and Smoke">Fire and Smoke</SelectItem>
+                                        {company?.supported_loss_types?.length > 0 ? (
+                                            company.supported_loss_types.map(type => (
+                                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <SelectItem value="Fire">Fire</SelectItem>
+                                                <SelectItem value="Smoke">Smoke</SelectItem>
+                                                <SelectItem value="Fire and Smoke">Fire and Smoke</SelectItem>
+                                            </>
+                                        )}
                                     </SelectContent>
                                 </Select>
                             )}
@@ -264,17 +279,46 @@ export default function NewJob() {
                     </div>
                     <div className="space-y-2">
                         <Label>Insurance Provider {user?.business_role === 'SalesRep' && '*'}</Label>
-                        <Input 
-                            {...register("insurance_provider", { 
-                                validate: (value) => {
-                                    if (user?.business_role === 'SalesRep' && !value?.trim()) {
-                                        return "Insurance Provider is required.";
+                        {company?.preferred_insurance_providers?.length > 0 ? (
+                             <Controller
+                                name="insurance_provider"
+                                control={control}
+                                rules={{ 
+                                    validate: (value) => {
+                                        if (user?.business_role === 'SalesRep' && !value?.trim()) {
+                                            return "Insurance Provider is required.";
+                                        }
+                                        return true;
                                     }
-                                    return true;
-                                }
-                            })} 
-                            placeholder="e.g., State Farm" 
-                        />
+                                }}
+                                render={({ field }) => (
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select provider" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {company.preferred_insurance_providers.map(p => (
+                                                <SelectItem key={p} value={p}>{p}</SelectItem>
+                                            ))}
+                                            <SelectItem value="_other">Other...</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                        ) : (
+                            <Input 
+                                {...register("insurance_provider", { 
+                                    validate: (value) => {
+                                        if (user?.business_role === 'SalesRep' && !value?.trim()) {
+                                            return "Insurance Provider is required.";
+                                        }
+                                        return true;
+                                    }
+                                })} 
+                                placeholder="e.g., State Farm" 
+                            />
+                        )}
+                        
                         <p className="text-xs text-slate-400">Required for Sales Reps.</p>
                         {errors.insurance_provider && <span className="text-xs text-red-500">{errors.insurance_provider.message}</span>}
                     </div>
