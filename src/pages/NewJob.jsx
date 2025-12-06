@@ -58,22 +58,30 @@ export default function NewJob() {
         throw new Error("User has no company_id. Please contact support or update your profile.");
       }
 
-      // --- DUPLICATE GUARD ---
-      const openJobs = await base44.entities.Job.filter({ company_id: companyId, is_closed: false });
-      
+      // --- DUPLICATE GUARD & KEY GENERATION ---
+      // Generate derived keys for indexing and uniqueness
       const cleanPhone = (p) => p?.replace(/\D/g, '') || '';
       const cleanAddr = (l1, c, s, z) => `${l1?.trim().toLowerCase()}|${c?.trim().toLowerCase()}|${s?.trim().toUpperCase()}|${z?.trim()}`;
       
-      const newPhone = cleanPhone(data.property_phone);
+      const newPhoneDigits = cleanPhone(data.property_phone);
       const newAddrKey = cleanAddr(data.property_address_line1, data.property_city, data.property_state, data.property_zip);
 
-      const duplicate = openJobs.find(j => {
-         const jPhone = cleanPhone(j.property_phone);
-         const jAddrKey = cleanAddr(j.property_address_line1, j.property_city, j.property_state, j.property_zip);
-         return (newPhone && jPhone === newPhone) || (newAddrKey && jAddrKey === newAddrKey);
-      });
+      // Efficient query using derived keys instead of table scan
+      // Check duplicates by address OR phone within same company and open status
+      const [dupByAddr, dupByPhone] = await Promise.all([
+          base44.entities.Job.list({ 
+              company_id: companyId, 
+              is_closed: false, 
+              address_key: newAddrKey 
+          }),
+          base44.entities.Job.list({ 
+              company_id: companyId, 
+              is_closed: false, 
+              phone_digits: newPhoneDigits 
+          })
+      ]);
 
-      if (duplicate) {
+      if (dupByAddr.length > 0 || dupByPhone.length > 0) {
           throw new Error("An open claim already exists for this address or phone in your company.");
       }
       // -----------------------
@@ -109,7 +117,9 @@ export default function NewJob() {
         lead_created_at: new Date().toISOString(),
         created_by: user.email,
         claim_number: claimNumber,
-        is_closed: false
+        is_closed: false,
+        address_key: newAddrKey,
+        phone_digits: newPhoneDigits
       };
 
       console.log("Creating Job with payload:", payload);
