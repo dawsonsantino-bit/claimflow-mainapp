@@ -91,6 +91,10 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
                     <NavItem icon={UserCog} label="Users" path="Users" />
                 </>
             )}
+
+            {user.is_app_owner && (
+                <NavItem icon={Shield} label="App Owner" path="Owner" />
+            )}
           </nav>
 
           {/* Dev Role Switcher - For Testing Pipeline Only */}
