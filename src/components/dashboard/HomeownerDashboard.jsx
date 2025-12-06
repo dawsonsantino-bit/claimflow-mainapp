@@ -12,7 +12,7 @@ import { Loader2, ArrowRight, Home } from 'lucide-react';
 export default function HomeownerDashboard({ user }) {
   const { data: jobs, isLoading } = useQuery({
     queryKey: ['jobs', 'homeowner', user.email],
-    queryFn: () => base44.entities.Job.list({ property_email: user.email }),
+    queryFn: () => base44.entities.Job.list({ property_email: user.email, company_id: user.company_id }),
   });
 
   if (isLoading) {

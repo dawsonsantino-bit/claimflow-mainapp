@@ -17,6 +17,26 @@ export default function Layout({ children }) {
     const init = async () => {
       try {
         const currentUser = await base44.auth.me();
+        
+        // --- AUTO-ASSIGN COMPANY LOGIC ---
+        if (currentUser && !currentUser.company_id && currentUser.email) {
+            try {
+                const domain = currentUser.email.split('@')[1];
+                if (domain) {
+                    const domains = await base44.entities.CompanyDomain.list({ domain: domain });
+                    if (domains && domains.length > 0) {
+                        const match = domains[0];
+                        // Auto-assign
+                        await base44.auth.updateMe({ company_id: match.company_id });
+                        currentUser.company_id = match.company_id; // Update local state
+                    }
+                }
+            } catch (assignError) {
+                console.warn("Auto-assign company failed", assignError);
+            }
+        }
+        // ---------------------------------
+
         setUser(currentUser);
       } catch (error) {
         console.error("Not logged in", error);

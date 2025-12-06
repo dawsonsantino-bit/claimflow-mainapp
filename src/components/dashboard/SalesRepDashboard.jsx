@@ -20,7 +20,7 @@ export default function SalesRepDashboard({ user }) {
       
       <JobList 
         title="My Jobs" 
-        queryFilter={{ sales_rep_user_id: user.id }} 
+        queryFilter={{ sales_rep_user_id: user.id, company_id: user.company_id }} 
       />
     </div>
   );

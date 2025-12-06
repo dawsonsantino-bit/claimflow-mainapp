@@ -485,7 +485,8 @@ export default function JobActionPanel({ job, user }) {
                       contractor_paid_at: new Date().toISOString(),
                       closed_at: new Date().toISOString(),
                       closed_with_balance: formData.closed_with_balance,
-                      closed_balance_reason: formData.closed_balance_reason
+                      closed_balance_reason: formData.closed_balance_reason,
+                      is_closed: true
                   }, () => {
                       if (!formData.contractor_payable) return "Please enter contractor payable amount.";
                       if (formData.closed_with_balance && !formData.closed_balance_reason) return "Please enter reason for balance.";
