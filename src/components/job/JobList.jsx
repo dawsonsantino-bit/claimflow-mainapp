@@ -20,7 +20,7 @@ import { Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 export default function JobList({ title, queryFilter = {}, columns = [] }) {
   const { data: jobs, isLoading, error } = useQuery({
     queryKey: ['jobs', JSON.stringify(queryFilter)],
-    queryFn: () => base44.entities.Job.list(queryFilter),
+    queryFn: () => base44.entities.Job.filter(queryFilter),
   });
 
   if (isLoading) {
@@ -58,6 +58,7 @@ export default function JobList({ title, queryFilter = {}, columns = [] }) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Claim #</TableHead>
               <TableHead>Property Owner</TableHead>
               <TableHead>Address</TableHead>
               <TableHead>Status</TableHead>
@@ -68,6 +69,7 @@ export default function JobList({ title, queryFilter = {}, columns = [] }) {
           <TableBody>
             {jobs.map((job) => (
               <TableRow key={job.id}>
+                <TableCell className="font-mono text-xs text-slate-500">#{job.claim_number || '-'}</TableCell>
                 <TableCell className="font-medium">{job.property_owner_name}</TableCell>
                 <TableCell>
                   {job.property_address_line1}, {job.property_city}

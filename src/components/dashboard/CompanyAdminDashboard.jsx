@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import JobList from '@/components/job/JobList';
-import { USER_ROLES, HUMAN_STATUSES } from '@/components/job/JobConstants';
+import { HUMAN_STATUSES } from '@/components/job/JobConstants';
 import { base44 } from '@/api/base44Client';
-import { Clock, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 function StagnantJobsAlert({ user }) {
     const [stagnantJobs, setStagnantJobs] = useState([]);
 
-    useEffect(() => {
+    React.useEffect(() => {
         const checkStagnant = async () => {
             // Fetch active jobs
-            const jobs = await base44.entities.Job.list({ 
+            const jobs = await base44.entities.Job.filter({ 
                 company_id: user.company_id,
                 current_status: { $ne: 'ContractorPaidCaseClosed' } 
             });
@@ -24,7 +26,7 @@ function StagnantJobsAlert({ user }) {
             });
             setStagnantJobs(stagnant);
         };
-        checkStagnant();
+        if (user.company_id) checkStagnant();
     }, [user.company_id]);
 
     if (stagnantJobs.length === 0) return null;
@@ -49,17 +51,26 @@ function StagnantJobsAlert({ user }) {
 }
 
 export default function CompanyAdminDashboard({ user }) {
+  const [showOpenOnly, setShowOpenOnly] = useState(false);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
+        <div className="flex items-center space-x-2">
+            <Switch id="open-claims" checked={showOpenOnly} onCheckedChange={setShowOpenOnly} />
+            <Label htmlFor="open-claims">Open Claims Only</Label>
+        </div>
       </div>
 
       <StagnantJobsAlert user={user} />
 
       <JobList 
-        title="All Jobs" 
-        queryFilter={{}} 
+        title={showOpenOnly ? "Open Claims" : "All Jobs"}
+        queryFilter={{ 
+            company_id: user.company_id, 
+            ...(showOpenOnly ? { is_closed: false } : {}) 
+        }} 
       />
     </div>
   );
