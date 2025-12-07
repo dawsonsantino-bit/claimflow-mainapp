@@ -55,14 +55,29 @@ export default function SignIn() {
   };
 
   const handleRedirect = (role) => {
-    if (role === USER_ROLES.CompanyAdmin || role === USER_ROLES.LocationAdmin) {
-        window.location.href = createPageUrl('Admin');
-    } else if (role === USER_ROLES.SalesRep) {
-        window.location.href = createPageUrl('Sales');
-    } else if (role === USER_ROLES.Homeowner) {
-        window.location.href = createPageUrl('Homeowner');
-    } else {
-        window.location.href = createPageUrl('Dashboard');
+    // Strict role-based routing
+    switch(role) {
+        case USER_ROLES.CompanyAdmin:
+        case USER_ROLES.LocationAdmin:
+            window.location.href = createPageUrl('Admin');
+            break;
+        case USER_ROLES.SalesRep:
+            window.location.href = createPageUrl('Sales');
+            break;
+        case USER_ROLES.Hygienist:
+            window.location.href = createPageUrl('Dashboard'); // Create pages/Hygienist if needed
+            break;
+        case USER_ROLES.Attorney:
+            window.location.href = createPageUrl('Dashboard'); // Create pages/Attorney if needed
+            break;
+        case USER_ROLES.Contractor:
+            window.location.href = createPageUrl('Dashboard'); // Create pages/Contractor if needed
+            break;
+        case USER_ROLES.Homeowner:
+            window.location.href = createPageUrl('Homeowner');
+            break;
+        default:
+            window.location.href = createPageUrl('Dashboard');
     }
   };
 

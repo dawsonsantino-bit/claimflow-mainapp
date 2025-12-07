@@ -107,6 +107,10 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
             {user.is_app_owner && (
                 <NavItem icon={Shield} label="App Owner" path="Owner" />
             )}
+
+            {APP_ENV === 'DEV' && !user.is_app_owner && (
+                <NavItem icon={Shield} label="🆘 Role Rescue" path="RoleRescue" />
+            )}
           </nav>
 
           {/* Dev Role Switcher - For Testing Pipeline Only */}

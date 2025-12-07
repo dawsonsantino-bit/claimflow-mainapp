@@ -10,7 +10,16 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const init = async () => {
       try {
-        const user = await base44.auth.me();
+        let user = await base44.auth.me();
+        
+        // Normalize email to lowercase
+        if (user && user.email) {
+            const normalizedEmail = user.email.toLowerCase();
+            if (user.email !== normalizedEmail) {
+                await base44.auth.updateMe({ email: normalizedEmail });
+                user.email = normalizedEmail;
+            }
+        }
         
         // Auto-assign company logic
         if (user && !user.company_id && user.email) {
