@@ -8,7 +8,8 @@ import {
   LogOut, 
   X,
   Shield,
-  UserCog
+  UserCog,
+  Flame
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { USER_ROLES } from '@/components/job/JobConstants';
@@ -93,7 +94,10 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
             {(user.business_role === USER_ROLES.SalesRep || 
               user.business_role === USER_ROLES.CompanyAdmin || 
               user.business_role === USER_ROLES.LocationAdmin) && (
-                <NavItem icon={PlusCircle} label="New Job" path="NewJob" />
+                <>
+                  <NavItem icon={PlusCircle} label="New Job" path="NewJob" />
+                  <NavItem icon={Flame} label="Fire Alerts" path="Fires" />
+                </>
             )}
 
             {user.business_role === USER_ROLES.CompanyAdmin && (

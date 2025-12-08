@@ -14,6 +14,7 @@ import ResetPassword from './pages/ResetPassword';
 import Owner from './pages/Owner';
 import CompanySettings from './pages/CompanySettings';
 import RoleRescue from './pages/RoleRescue';
+import Fires from './pages/Fires';
 import __Layout from './Layout.jsx';
 
 
@@ -34,6 +35,7 @@ export const PAGES = {
     "Owner": Owner,
     "CompanySettings": CompanySettings,
     "RoleRescue": RoleRescue,
+    "Fires": Fires,
 }
 
 export const pagesConfig = {
