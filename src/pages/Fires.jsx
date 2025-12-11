@@ -14,7 +14,8 @@ import FireAlertDrawer from '@/components/fires/FireAlertDrawer';
 import FireMetrics from '@/components/fires/FireMetrics';
 import FireFilters from '@/components/fires/FireFilters';
 import AddTestAlertDialog from '@/components/fires/AddTestAlertDialog';
-import { generateAlertSummary, clusterDuplicateAlerts } from '@/components/services/FireAlertService';
+import { generateAlertSummary, clusterDuplicateAlerts, calculateAlertUrgency } from '@/components/services/FireAlertService';
+import AlertUrgencyBadge from '@/components/fires/AlertUrgencyBadge';
 
 export default function Fires() {
   const queryClient = useQueryClient();
@@ -26,6 +27,8 @@ export default function Fires() {
   const [loadingSummaries, setLoadingSummaries] = useState(false);
   const [clusters, setClusters] = useState([]);
   const [loadingClusters, setLoadingClusters] = useState(false);
+  const [urgencyScores, setUrgencyScores] = useState({});
+  const [loadingUrgency, setLoadingUrgency] = useState(false);
   
   const [filters, setFilters] = useState({
     timeWindow: '24h',
@@ -146,7 +149,37 @@ export default function Fires() {
     setLoadingClusters(false);
   };
 
-  // Group alerts by cluster for display
+  const handleCalculateUrgency = async () => {
+    if (alerts.length === 0) return;
+    
+    setLoadingUrgency(true);
+    const newUrgency = {};
+    
+    // Calculate urgency for active alerts
+    const activeAlerts = alerts.filter(a => a.status === 'New').slice(0, 20);
+    
+    // Get rep workload context
+    const repWorkload = {
+      activeJobs: 0,
+      pendingAlerts: alerts.filter(a => a.status === 'New').length
+    };
+    
+    for (const alert of activeAlerts) {
+      if (!urgencyScores[alert.id]) {
+        try {
+          const urgency = await calculateAlertUrgency(alert, repWorkload, { inTerritory: true });
+          newUrgency[alert.id] = urgency;
+        } catch (error) {
+          console.error('Failed to calculate urgency for alert', alert.id, error);
+        }
+      }
+    }
+    
+    setUrgencyScores(prev => ({ ...prev, ...newUrgency }));
+    setLoadingUrgency(false);
+  };
+
+  // Group alerts by cluster for display and sort by urgency
   const groupedAlerts = useMemo(() => {
     const grouped = new Map();
     
@@ -171,8 +204,40 @@ export default function Fires() {
       });
     }
     
-    return Array.from(grouped.values());
-  }, [alerts]);
+    const groups = Array.from(grouped.values());
+    
+    // Sort groups by urgency score (highest first)
+    groups.sort((groupA, groupB) => {
+      const alertA = groupA.find(a => !a.primary_alert_id) || groupA[0];
+      const alertB = groupB.find(a => !a.primary_alert_id) || groupB[0];
+      
+      const urgencyA = urgencyScores[alertA.id]?.urgencyScore || 0;
+      const urgencyB = urgencyScores[alertB.id]?.urgencyScore || 0;
+      
+      return urgencyB - urgencyA;
+    });
+    
+    return groups;
+  }, [alerts, urgencyScores]);
+
+  // Separate critical/high urgency alerts
+  const { criticalAlerts, regularAlerts } = useMemo(() => {
+    const critical = [];
+    const regular = [];
+    
+    for (const group of groupedAlerts) {
+      const primaryAlert = group.find(a => !a.primary_alert_id) || group[0];
+      const urgency = urgencyScores[primaryAlert.id];
+      
+      if (urgency && (urgency.urgencyTier === 'critical' || urgency.urgencyTier === 'high')) {
+        critical.push(group);
+      } else {
+        regular.push(group);
+      }
+    }
+    
+    return { criticalAlerts: critical, regularAlerts: regular };
+  }, [groupedAlerts, urgencyScores]);
 
   if (!user) {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
@@ -226,6 +291,24 @@ export default function Fires() {
               </p>
               <div className="flex gap-2">
                 <Button 
+                  onClick={handleCalculateUrgency}
+                  variant="outline" 
+                  size="sm"
+                  disabled={loadingUrgency || alerts.length === 0}
+                >
+                  {loadingUrgency ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                      Calculating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3 mr-2" />
+                      Calculate Urgency
+                    </>
+                  )}
+                </Button>
+                <Button 
                   onClick={handleClusterAlerts}
                   variant="outline" 
                   size="sm"
@@ -276,25 +359,146 @@ export default function Fires() {
                   <p className="text-sm">Adjust filters or add a test alert to get started</p>
                 </div>
               ) : (
-                <div className="divide-y">
-                  {groupedAlerts.map((group, groupIdx) => {
-                    const primaryAlert = group.find(a => !a.primary_alert_id) || group[0];
-                    const staleAlerts = group.filter(a => a.status === 'Stale');
-                    const summary = summaries[primaryAlert.id];
-                    const isCluster = group.length > 1;
-                    
-                    return (
-                      <div 
-                        key={`group-${groupIdx}`}
-                        className={`p-4 hover:bg-slate-50 cursor-pointer transition-colors ${isCluster ? 'border-l-4 border-l-indigo-400' : ''}`}
-                        onClick={() => handleAlertClick(primaryAlert)}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-slate-900 truncate">
-                                {primaryAlert.headline || primaryAlert.event_type || 'Fire Alert'}
-                              </h3>
+                <div>
+                  {/* High Priority Section */}
+                  {criticalAlerts.length > 0 && (
+                    <div className="bg-red-50 border-b-2 border-red-200">
+                      <div className="px-4 py-2 bg-red-100 border-b border-red-200">
+                        <h3 className="text-sm font-bold text-red-900 flex items-center gap-2">
+                          <Flame className="w-4 h-4" />
+                          High Priority Alerts ({criticalAlerts.length})
+                        </h3>
+                        <p className="text-xs text-red-700">Immediate action recommended</p>
+                      </div>
+                      <div className="divide-y divide-red-100">
+                        {criticalAlerts.map((group, groupIdx) => {
+                          const primaryAlert = group.find(a => !a.primary_alert_id) || group[0];
+                          const staleAlerts = group.filter(a => a.status === 'Stale');
+                          const summary = summaries[primaryAlert.id];
+                          const urgency = urgencyScores[primaryAlert.id];
+                          const isCluster = group.length > 1;
+                          
+                          return (
+                            <div 
+                              key={`critical-${groupIdx}`}
+                              className={`p-4 hover:bg-red-100 cursor-pointer transition-colors ${isCluster ? 'border-l-4 border-l-indigo-400' : ''}`}
+                              onClick={() => handleAlertClick(primaryAlert)}
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    {urgency && <AlertUrgencyBadge urgency={urgency} showBreakdown />}
+                                    <h3 className="font-semibold text-slate-900 truncate">
+                                      {primaryAlert.headline || primaryAlert.event_type || 'Fire Alert'}
+                                    </h3>
+                                    <Badge 
+                                      variant={primaryAlert.status === 'New' ? 'default' : primaryAlert.status === 'Converted' ? 'success' : 'secondary'}
+                                      className="text-xs shrink-0"
+                                    >
+                                      {primaryAlert.status}
+                                    </Badge>
+                                    {isCluster && (
+                                      <Badge variant="outline" className="text-xs shrink-0">
+                                        {group.length} alerts clustered
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  
+                                  {urgency?.recommendedAction && (
+                                    <p className="text-sm text-red-800 font-medium mb-2 flex items-start gap-2">
+                                      <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+                                      {urgency.recommendedAction}
+                                    </p>
+                                  )}
+                                  
+                                  {summary && (
+                                    <p className="text-sm text-slate-700 mb-2 flex items-start gap-2">
+                                      <span className="italic">{summary.summary}</span>
+                                    </p>
+                                  )}
+                                  
+                                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="w-3 h-3" />
+                                      {primaryAlert.address_text || `${primaryAlert.city}, ${primaryAlert.state}`}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      {new Date(primaryAlert.received_at).toLocaleString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric', 
+                                        hour: '2-digit', 
+                                        minute: '2-digit' 
+                                      })}
+                                    </span>
+                                    {primaryAlert.severity && (
+                                      <Badge variant={primaryAlert.severity === 'high' ? 'destructive' : 'secondary'} className="text-xs h-5">
+                                        {primaryAlert.severity}
+                                      </Badge>
+                                    )}
+                                    {primaryAlert.confidence && (
+                                      <span className="text-slate-500">
+                                        {Math.round(primaryAlert.confidence * 100)}% confident
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  {staleAlerts.length > 0 && (
+                                    <div className="mt-2 text-xs text-slate-500 flex items-center gap-1">
+                                      <span>+{staleAlerts.length} older duplicate(s) marked as stale</span>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    handleAlertClick(primaryAlert); 
+                                  }}
+                                >
+                                  View
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Regular Alerts Section */}
+                  {regularAlerts.length > 0 && (
+                    <>
+                      {criticalAlerts.length > 0 && (
+                        <div className="px-4 py-2 bg-slate-100 border-b">
+                          <h3 className="text-sm font-semibold text-slate-700">
+                            Other Alerts ({regularAlerts.length})
+                          </h3>
+                        </div>
+                      )}
+                      <div className="divide-y">
+                        {regularAlerts.map((group, groupIdx) => {
+                          const primaryAlert = group.find(a => !a.primary_alert_id) || group[0];
+                          const staleAlerts = group.filter(a => a.status === 'Stale');
+                          const summary = summaries[primaryAlert.id];
+                          const urgency = urgencyScores[primaryAlert.id];
+                          const isCluster = group.length > 1;
+                          
+                          return (
+                            <div 
+                              key={`regular-${groupIdx}`}
+                              className={`p-4 hover:bg-slate-50 cursor-pointer transition-colors ${isCluster ? 'border-l-4 border-l-indigo-400' : ''}`}
+                              onClick={() => handleAlertClick(primaryAlert)}
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    {urgency && <AlertUrgencyBadge urgency={urgency} showBreakdown />}
+                                    <h3 className="font-semibold text-slate-900 truncate">
+                                      {primaryAlert.headline || primaryAlert.event_type || 'Fire Alert'}
+                                    </h3>
                               <Badge 
                                 variant={primaryAlert.status === 'New' ? 'default' : primaryAlert.status === 'Converted' ? 'success' : 'secondary'}
                                 className="text-xs shrink-0"
@@ -371,13 +575,16 @@ export default function Fires() {
                           >
                             View
                           </Button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
+          )}
+        </div>
           </div>
         </CardContent>
       </Card>
