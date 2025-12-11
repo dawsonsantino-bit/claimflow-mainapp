@@ -378,6 +378,107 @@ Return clusters where each cluster has alert IDs and the primary alert ID.`;
 }
 
 /**
+ * Calculates an urgency score for a fire alert using AI
+ */
+export async function calculateAlertUrgency(alert, repWorkload = {}, territory = {}) {
+  try {
+    const hoursSinceOccurred = alert.occurred_at 
+      ? (Date.now() - new Date(alert.occurred_at).getTime()) / (1000 * 60 * 60)
+      : null;
+
+    const prompt = `Analyze this fire alert and calculate an urgency score for a restoration company sales rep:
+
+ALERT DETAILS:
+- Headline: ${alert.headline || 'N/A'}
+- Description: ${alert.description || 'N/A'}
+- Event Type: ${alert.event_type || 'N/A'}
+- Location: ${alert.address_text || `${alert.city}, ${alert.state}`}
+- Severity: ${alert.severity || 'N/A'}
+- Confidence: ${alert.confidence ? Math.round(alert.confidence * 100) + '%' : 'N/A'}
+- Time Since Occurred: ${hoursSinceOccurred ? Math.round(hoursSinceOccurred) + ' hours ago' : 'Unknown'}
+
+REP CONTEXT:
+- Current Workload: ${repWorkload.activeJobs || 0} active jobs, ${repWorkload.pendingAlerts || 0} pending alerts
+- Territory Coverage: ${territory.inTerritory ? 'Within territory' : 'Outside territory'}
+
+URGENCY FACTORS TO CONSIDER:
+1. Time Sensitivity (0-30 points):
+   - Fresh fires (<6h) need immediate response = 30 pts
+   - Recent fires (6-24h) = 20 pts
+   - Older fires (>24h) = 10 pts
+
+2. Business Potential (0-25 points):
+   - High severity fires = larger restoration jobs = 25 pts
+   - Medium severity = 15 pts
+   - Low severity = 5 pts
+
+3. Confidence Level (0-20 points):
+   - High confidence (>0.8) = 20 pts
+   - Medium confidence (0.5-0.8) = 12 pts
+   - Low confidence (<0.5) = 5 pts
+
+4. Property Type Impact (0-15 points):
+   - Commercial/Multi-unit = high value = 15 pts
+   - Single family = 10 pts
+   - Vehicle/outdoor = 3 pts
+
+5. Competition Risk (0-10 points):
+   - High severity + fresh = competitors likely responding = 10 pts
+   - Lower urgency situations = 5 pts
+
+Calculate a total urgency score (0-100) and provide reasoning.`;
+
+    const result = await base44.integrations.Core.InvokeLLM({
+      prompt,
+      response_json_schema: {
+        type: "object",
+        properties: {
+          urgency_score: { type: "number", minimum: 0, maximum: 100 },
+          urgency_tier: { type: "string", enum: ["critical", "high", "medium", "low"] },
+          time_score: { type: "number" },
+          business_score: { type: "number" },
+          confidence_score: { type: "number" },
+          property_score: { type: "number" },
+          competition_score: { type: "number" },
+          reasoning: { type: "string" },
+          recommended_action: { type: "string" },
+          response_timeframe: { type: "string" }
+        },
+        required: ["urgency_score", "urgency_tier", "reasoning"]
+      }
+    });
+
+    return {
+      urgencyScore: result.urgency_score,
+      urgencyTier: result.urgency_tier,
+      breakdown: {
+        time: result.time_score || 0,
+        business: result.business_score || 0,
+        confidence: result.confidence_score || 0,
+        property: result.property_score || 0,
+        competition: result.competition_score || 0
+      },
+      reasoning: result.reasoning,
+      recommendedAction: result.recommended_action,
+      responseTimeframe: result.response_timeframe
+    };
+  } catch (error) {
+    console.error('Urgency calculation failed:', error);
+    // Fallback to basic calculation
+    const baseScore = (alert.severity === 'high' ? 70 : alert.severity === 'medium' ? 50 : 30);
+    const confidenceBonus = (alert.confidence || 0.5) * 20;
+    return {
+      urgencyScore: Math.round(baseScore + confidenceBonus),
+      urgencyTier: baseScore >= 70 ? 'high' : baseScore >= 50 ? 'medium' : 'low',
+      breakdown: {},
+      reasoning: 'Fallback scoring applied',
+      recommendedAction: 'Review alert details',
+      responseTimeframe: 'Within 24 hours'
+    };
+  }
+}
+
+/**
  * Analyzes a converted lead to provide qualification score and next steps
  */
 export async function analyzeLeadQualification(alert, job) {
