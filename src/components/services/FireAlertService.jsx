@@ -378,6 +378,103 @@ Return clusters where each cluster has alert IDs and the primary alert ID.`;
 }
 
 /**
+ * Analyzes a converted lead to provide qualification score and next steps
+ */
+export async function analyzeLeadQualification(alert, job) {
+  try {
+    const prompt = `Analyze this fire alert that was converted into a restoration lead and provide qualification insights:
+
+ALERT DETAILS:
+- Headline: ${alert.headline || 'N/A'}
+- Description: ${alert.description || 'N/A'}
+- Event Type: ${alert.event_type || 'N/A'}
+- Location: ${alert.address_text || `${alert.city}, ${alert.state}`}
+- Severity: ${alert.severity || 'N/A'}
+- Confidence: ${alert.confidence ? Math.round(alert.confidence * 100) + '%' : 'N/A'}
+- Occurred At: ${alert.occurred_at || alert.received_at}
+
+JOB DETAILS:
+- Property Owner: ${job.property_owner_name}
+- Property Address: ${job.property_address_line1}, ${job.property_city}, ${job.property_state}
+- Loss Type: ${job.loss_type || 'N/A'}
+- Assessment Notes: ${job.assessment_notes || 'N/A'}
+
+QUALIFICATION TASK:
+Analyze this lead and provide:
+1. Lead Temperature: 'hot', 'warm', or 'cold'
+2. Priority Score: 1-10 (10 = highest priority)
+3. Reasoning: Why you scored it this way
+4. Next Steps: 3-5 specific action items for the sales rep (be concrete and actionable)
+5. Risk Factors: Any red flags or concerns
+6. Opportunity Indicators: Positive signals that suggest this is a good lead
+
+Consider:
+- Severity indicates urgency and potential scope
+- Recent fires (< 48 hours) are hotter leads
+- Complete property information suggests engaged homeowner
+- High confidence alerts are more reliable
+- Larger fires typically need more restoration work`;
+
+    const result = await base44.integrations.Core.InvokeLLM({
+      prompt,
+      response_json_schema: {
+        type: "object",
+        properties: {
+          lead_temperature: { 
+            type: "string", 
+            enum: ["hot", "warm", "cold"] 
+          },
+          priority_score: { 
+            type: "number", 
+            minimum: 1, 
+            maximum: 10 
+          },
+          reasoning: { type: "string" },
+          next_steps: {
+            type: "array",
+            items: { type: "string" }
+          },
+          risk_factors: {
+            type: "array",
+            items: { type: "string" }
+          },
+          opportunity_indicators: {
+            type: "array",
+            items: { type: "string" }
+          },
+          estimated_urgency_hours: { 
+            type: "number",
+            description: "Hours until rep should make first contact"
+          }
+        },
+        required: ["lead_temperature", "priority_score", "reasoning", "next_steps"]
+      }
+    });
+
+    return {
+      leadTemperature: result.lead_temperature,
+      priorityScore: result.priority_score,
+      reasoning: result.reasoning,
+      nextSteps: result.next_steps || [],
+      riskFactors: result.risk_factors || [],
+      opportunityIndicators: result.opportunity_indicators || [],
+      estimatedUrgencyHours: result.estimated_urgency_hours || 24
+    };
+  } catch (error) {
+    console.error('Lead qualification analysis failed:', error);
+    return {
+      leadTemperature: 'warm',
+      priorityScore: 5,
+      reasoning: 'Analysis unavailable - default scoring applied',
+      nextSteps: ['Contact homeowner within 24 hours', 'Schedule property assessment'],
+      riskFactors: [],
+      opportunityIndicators: [],
+      estimatedUrgencyHours: 24
+    };
+  }
+}
+
+/**
  * Enhances an alert with AI-powered analysis
  */
 export async function enhanceFireAlert(alertData, existingAlerts = []) {
