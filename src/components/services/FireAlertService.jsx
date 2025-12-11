@@ -47,17 +47,41 @@ Consider factors like:
 }
 
 /**
- * Geocodes an address to lat/lon coordinates
+ * Geocodes an address to lat/lon coordinates with enhanced precision
  */
 export async function geocodeAddress(addressText, city, state, zip) {
   try {
-    const fullAddress = [addressText, city, state, zip].filter(Boolean).join(', ');
+    // Construct full address with priority components
+    const addressComponents = [addressText, city, state, zip].filter(Boolean);
+    const fullAddress = addressComponents.join(', ');
     
-    const prompt = `Geocode this address and return the latitude and longitude coordinates:
+    if (!fullAddress.trim()) {
+      return { lat: null, lon: null, formatted_address: null, confidence: 0, method: 'failed' };
+    }
+    
+    const prompt = `You are a precision geocoding service. Geocode this address to exact latitude and longitude coordinates.
 
-Address: ${fullAddress}
+ADDRESS TO GEOCODE: ${fullAddress}
 
-Return the most accurate coordinates for this location. If the address is invalid or cannot be found, return null for both lat and lon.`;
+REQUIREMENTS:
+1. Use real geocoding data from Google Maps, OpenStreetMap, or other reliable sources
+2. Return coordinates with at least 6 decimal places for precision (~0.1 meter accuracy)
+3. For ambiguous addresses, choose the most likely interpretation based on:
+   - Complete street address > City center
+   - Residential/commercial buildings > Intersections
+   - USA locations (given state/zip context)
+4. Validate the coordinates are reasonable for the given state/region
+5. Return the properly formatted standardized address
+
+HANDLING INCOMPLETE/AMBIGUOUS ADDRESSES:
+- If only city/state: Return city center coordinates
+- If street name without number: Return midpoint of that street
+- If multiple matches exist: Choose the most populated/central location
+- If address cannot be geocoded: Return null
+
+Return high confidence (>0.8) only for precise street addresses with building numbers.
+Return medium confidence (0.5-0.8) for street-level or landmark geocoding.
+Return low confidence (<0.5) for city-level or ambiguous results.`;
 
     const result = await base44.integrations.Core.InvokeLLM({
       prompt,
@@ -67,19 +91,54 @@ Return the most accurate coordinates for this location. If the address is invali
         properties: {
           lat: { type: "number" },
           lon: { type: "number" },
-          formatted_address: { type: "string" }
-        }
+          formatted_address: { type: "string" },
+          confidence: { type: "number", minimum: 0, maximum: 1 },
+          precision_level: { 
+            type: "string", 
+            enum: ["rooftop", "street", "city", "region", "unknown"] 
+          },
+          notes: { type: "string" }
+        },
+        required: ["lat", "lon", "confidence", "precision_level"]
       }
     });
+
+    // Validate coordinates are reasonable
+    const isValidCoords = result.lat && result.lon &&
+                         result.lat >= -90 && result.lat <= 90 &&
+                         result.lon >= -180 && result.lon <= 180;
+
+    if (!isValidCoords) {
+      console.warn('Invalid coordinates received:', result);
+      return { 
+        lat: null, 
+        lon: null, 
+        formatted_address: null, 
+        confidence: 0, 
+        method: 'validation_failed',
+        error: 'Invalid coordinate range'
+      };
+    }
 
     return {
       lat: result.lat,
       lon: result.lon,
-      formatted_address: result.formatted_address
+      formatted_address: result.formatted_address || fullAddress,
+      confidence: result.confidence || 0.5,
+      precision_level: result.precision_level || 'unknown',
+      notes: result.notes,
+      method: 'ai_enhanced'
     };
   } catch (error) {
     console.error('Geocoding failed:', error);
-    return { lat: null, lon: null, formatted_address: null };
+    return { 
+      lat: null, 
+      lon: null, 
+      formatted_address: null, 
+      confidence: 0, 
+      method: 'error',
+      error: error.message 
+    };
   }
 }
 
@@ -354,8 +413,10 @@ export async function enhanceFireAlert(alertData, existingAlerts = []) {
     enhanced.raw.used_ai_override = false;
   }
 
-  // 2. Geocode address if coordinates missing
-  if ((!enhanced.lat || !enhanced.lon) && (enhanced.address_text || enhanced.city)) {
+  // 2. Geocode address if coordinates missing or low quality
+  const shouldGeocode = (!enhanced.lat || !enhanced.lon) && (enhanced.address_text || enhanced.city);
+  
+  if (shouldGeocode) {
     const geocoded = await geocodeAddress(
       enhanced.address_text,
       enhanced.city,
@@ -364,16 +425,40 @@ export async function enhanceFireAlert(alertData, existingAlerts = []) {
     );
     
     if (geocoded.lat && geocoded.lon) {
-      enhanced.lat = geocoded.lat;
-      enhanced.lon = geocoded.lon;
-      if (geocoded.formatted_address && !enhanced.address_text) {
-        enhanced.address_text = geocoded.formatted_address;
+      // Store original coordinates if they existed
+      if (enhanced.lat || enhanced.lon) {
+        if (!enhanced.raw) enhanced.raw = {};
+        enhanced.raw.original_lat = enhanced.lat;
+        enhanced.raw.original_lon = enhanced.lon;
       }
       
-      // Store in raw data
+      enhanced.lat = geocoded.lat;
+      enhanced.lon = geocoded.lon;
+      
+      // Use formatted address if better than original
+      if (geocoded.formatted_address) {
+        if (!enhanced.address_text || geocoded.confidence > 0.7) {
+          enhanced.address_text = geocoded.formatted_address;
+        }
+      }
+      
+      // Store geocoding metadata
       if (!enhanced.raw) enhanced.raw = {};
-      enhanced.raw.geocoded = true;
-      enhanced.raw.geocoded_address = geocoded.formatted_address;
+      enhanced.raw.geocoding = {
+        method: geocoded.method,
+        confidence: geocoded.confidence,
+        precision_level: geocoded.precision_level,
+        formatted_address: geocoded.formatted_address,
+        notes: geocoded.notes
+      };
+    } else {
+      // Store failure reason
+      if (!enhanced.raw) enhanced.raw = {};
+      enhanced.raw.geocoding = {
+        method: geocoded.method,
+        error: geocoded.error || 'Failed to geocode',
+        attempted_address: [enhanced.address_text, enhanced.city, enhanced.state, enhanced.zip].filter(Boolean).join(', ')
+      };
     }
   }
 
