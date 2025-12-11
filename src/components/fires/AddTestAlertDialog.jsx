@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import {
   Dialog,
@@ -13,10 +13,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, CheckCircle, Sparkles } from 'lucide-react';
+import { enhanceFireAlert } from '@/components/services/FireAlertService';
 
 export default function AddTestAlertDialog({ open, onClose, user }) {
   const queryClient = useQueryClient();
+  const [useAI, setUseAI] = useState(true);
   const [formData, setFormData] = useState({
     source: 'TestProvider',
     external_id: `test_${Date.now()}`,
@@ -26,11 +29,20 @@ export default function AddTestAlertDialog({ open, onClose, user }) {
     city: 'Austin',
     state: 'TX',
     zip: '78701',
-    lat: '30.2672',
-    lon: '-97.7431',
-    severity: 'high',
-    confidence: '0.9',
+    lat: '',
+    lon: '',
+    severity: '',
+    confidence: '',
     event_type: 'structure_fire'
+  });
+
+  const { data: existingAlerts = [] } = useQuery({
+    queryKey: ['fireAlerts', user?.company_id],
+    queryFn: async () => {
+      if (!user?.company_id) return [];
+      return await base44.entities.FireAlert.list('-received_at', 100);
+    },
+    enabled: !!user?.company_id && open,
   });
 
   const createAlertMutation = useMutation({
@@ -47,10 +59,10 @@ export default function AddTestAlertDialog({ open, onClose, user }) {
         city: 'Austin',
         state: 'TX',
         zip: '78701',
-        lat: '30.2672',
-        lon: '-97.7431',
-        severity: 'high',
-        confidence: '0.9',
+        lat: '',
+        lon: '',
+        severity: '',
+        confidence: '',
         event_type: 'structure_fire'
       });
     }
@@ -59,7 +71,7 @@ export default function AddTestAlertDialog({ open, onClose, user }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    const alertData = {
+    let alertData = {
       company_id: user.company_id,
       source: formData.source,
       external_id: formData.external_id,
@@ -71,14 +83,19 @@ export default function AddTestAlertDialog({ open, onClose, user }) {
       city: formData.city,
       state: formData.state,
       zip: formData.zip,
-      lat: parseFloat(formData.lat),
-      lon: parseFloat(formData.lon),
-      severity: formData.severity,
-      confidence: parseFloat(formData.confidence),
+      lat: formData.lat ? parseFloat(formData.lat) : null,
+      lon: formData.lon ? parseFloat(formData.lon) : null,
+      severity: formData.severity || null,
+      confidence: formData.confidence ? parseFloat(formData.confidence) : null,
       occurred_at: new Date().toISOString(),
       received_at: new Date().toISOString(),
       raw: { test: true, ...formData }
     };
+
+    // Use AI enhancement if enabled
+    if (useAI) {
+      alertData = await enhanceFireAlert(alertData, existingAlerts);
+    }
 
     await createAlertMutation.mutateAsync(alertData);
   };
@@ -94,6 +111,18 @@ export default function AddTestAlertDialog({ open, onClose, user }) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div className="flex items-center space-x-2 p-3 bg-indigo-50 rounded-lg">
+            <Checkbox 
+              id="useAI" 
+              checked={useAI} 
+              onCheckedChange={setUseAI}
+            />
+            <Label htmlFor="useAI" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-600" />
+              Use AI to enhance alert (analyze severity, geocode, detect duplicates)
+            </Label>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Provider/Source</Label>
@@ -141,12 +170,13 @@ export default function AddTestAlertDialog({ open, onClose, user }) {
               />
             </div>
             <div>
-              <Label>Severity</Label>
+              <Label>Severity {useAI && !formData.severity && <span className="text-xs text-indigo-600">(AI will suggest)</span>}</Label>
               <Select value={formData.severity} onValueChange={(val) => setFormData({...formData, severity: val})}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Leave empty for AI" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={null}>Auto (AI)</SelectItem>
                   <SelectItem value="high">High</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="low">Low</SelectItem>
@@ -190,27 +220,29 @@ export default function AddTestAlertDialog({ open, onClose, user }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Latitude</Label>
+              <Label>Latitude {useAI && !formData.lat && <span className="text-xs text-indigo-600">(AI will geocode)</span>}</Label>
               <Input
                 type="number"
                 step="0.0001"
                 value={formData.lat}
                 onChange={(e) => setFormData({...formData, lat: e.target.value})}
+                placeholder={useAI ? "Leave empty for AI geocoding" : ""}
               />
             </div>
             <div>
-              <Label>Longitude</Label>
+              <Label>Longitude {useAI && !formData.lon && <span className="text-xs text-indigo-600">(AI will geocode)</span>}</Label>
               <Input
                 type="number"
                 step="0.0001"
                 value={formData.lon}
                 onChange={(e) => setFormData({...formData, lon: e.target.value})}
+                placeholder={useAI ? "Leave empty for AI geocoding" : ""}
               />
             </div>
           </div>
 
           <div>
-            <Label>Confidence (0-1)</Label>
+            <Label>Confidence (0-1) {useAI && !formData.confidence && <span className="text-xs text-indigo-600">(AI will calculate)</span>}</Label>
             <Input
               type="number"
               step="0.01"
@@ -218,6 +250,7 @@ export default function AddTestAlertDialog({ open, onClose, user }) {
               max="1"
               value={formData.confidence}
               onChange={(e) => setFormData({...formData, confidence: e.target.value})}
+              placeholder={useAI ? "Leave empty for AI analysis" : ""}
             />
           </div>
 
