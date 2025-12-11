@@ -218,6 +218,107 @@ Keep it under 100 characters if possible. Be direct and clear.`;
 }
 
 /**
+ * Clusters duplicate alerts using AI and marks older ones as stale
+ */
+export async function clusterDuplicateAlerts(alerts) {
+  if (!alerts || alerts.length < 2) return { clusters: [], updates: [] };
+
+  try {
+    const prompt = `Analyze these fire alerts and cluster duplicates (same incident reported multiple times):
+
+${alerts.map((a, i) => `
+Alert ${i}:
+- ID: ${a.id}
+- Headline: ${a.headline || 'N/A'}
+- Description: ${a.description || 'N/A'}
+- Address: ${a.address_text || `${a.city}, ${a.state}`}
+- Coordinates: ${a.lat || 'N/A'}, ${a.lon || 'N/A'}
+- Occurred: ${a.occurred_at || 'N/A'}
+- Received: ${a.received_at}
+- Status: ${a.status}
+- Source: ${a.source}
+`).join('\n')}
+
+Group alerts that describe the same fire incident. Consider:
+- Location proximity (same address or within ~100m)
+- Time proximity (within same day)
+- Description similarity (same event)
+- Newer alerts may have more details than older ones
+
+For each cluster:
+- Identify the most detailed/recent alert as primary
+- Mark older/less detailed alerts as stale
+- Suggest merged details from all alerts
+
+Return clusters where each cluster has alert IDs and the primary alert ID.`;
+
+    const result = await base44.integrations.Core.InvokeLLM({
+      prompt,
+      response_json_schema: {
+        type: "object",
+        properties: {
+          clusters: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                cluster_id: { type: "string" },
+                primary_alert_index: { type: "number" },
+                alert_indices: { 
+                  type: "array",
+                  items: { type: "number" }
+                },
+                merged_description: { type: "string" },
+                reasoning: { type: "string" }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Build clusters with actual alert IDs
+    const clusters = result.clusters.map(cluster => ({
+      cluster_id: cluster.cluster_id,
+      primary_alert_id: alerts[cluster.primary_alert_index]?.id,
+      alert_ids: cluster.alert_indices.map(idx => alerts[idx]?.id).filter(Boolean),
+      merged_description: cluster.merged_description,
+      reasoning: cluster.reasoning
+    }));
+
+    // Generate updates to mark stale alerts
+    const updates = [];
+    for (const cluster of clusters) {
+      for (const alertId of cluster.alert_ids) {
+        if (alertId !== cluster.primary_alert_id) {
+          updates.push({
+            id: alertId,
+            data: {
+              status: 'Stale',
+              cluster_id: cluster.cluster_id,
+              primary_alert_id: cluster.primary_alert_id
+            }
+          });
+        } else {
+          updates.push({
+            id: alertId,
+            data: {
+              cluster_id: cluster.cluster_id,
+              description: cluster.merged_description || alerts.find(a => a.id === alertId)?.description
+            }
+          });
+        }
+      }
+    }
+
+    return { clusters, updates };
+  } catch (error) {
+    console.error('Alert clustering failed:', error);
+    return { clusters: [], updates: [] };
+  }
+}
+
+/**
  * Enhances an alert with AI-powered analysis
  */
 export async function enhanceFireAlert(alertData, existingAlerts = []) {

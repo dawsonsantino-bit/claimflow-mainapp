@@ -8,7 +8,8 @@ export default function FireFilters({ filters, setFilters, alerts }) {
     { value: 'all', label: 'All Status' },
     { value: 'New', label: 'New' },
     { value: 'Converted', label: 'Converted' },
-    { value: 'Dismissed', label: 'Dismissed' }
+    { value: 'Dismissed', label: 'Dismissed' },
+    { value: 'Stale', label: 'Stale (Duplicate)' }
   ];
 
   const timeOptions = [

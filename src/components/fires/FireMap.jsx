@@ -37,7 +37,14 @@ function MapController({ alerts }) {
 }
 
 export default function FireMap({ alerts, onAlertClick, isLoading }) {
-  const validAlerts = alerts.filter(a => a.lat && a.lon);
+  // Group alerts by cluster and only show primary or unclustered alerts on map
+  const mapAlerts = alerts.filter(a => {
+    if (!a.lat || !a.lon) return false;
+    // Show if not part of a cluster, or if it's the primary alert
+    return !a.primary_alert_id;
+  });
+  
+  const validAlerts = mapAlerts;
 
   if (isLoading) {
     return (
@@ -75,26 +82,35 @@ export default function FireMap({ alerts, onAlertClick, isLoading }) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapController alerts={validAlerts} />
-        {validAlerts.map(alert => (
-          <Marker 
-            key={alert.id} 
-            position={[alert.lat, alert.lon]}
-            icon={fireIcon}
-            eventHandlers={{
-              click: () => onAlertClick(alert)
-            }}
-          >
-            <Popup>
-              <div className="text-sm">
-                <p className="font-semibold">{alert.headline || alert.event_type}</p>
-                <p className="text-xs text-slate-600">{alert.address_text}</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {new Date(alert.received_at).toLocaleString()}
-                </p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {validAlerts.map(alert => {
+          const clusterCount = alerts.filter(a => a.primary_alert_id === alert.id || (a.cluster_id === alert.cluster_id && alert.cluster_id)).length;
+          
+          return (
+            <Marker 
+              key={alert.id} 
+              position={[alert.lat, alert.lon]}
+              icon={fireIcon}
+              eventHandlers={{
+                click: () => onAlertClick(alert)
+              }}
+            >
+              <Popup>
+                <div className="text-sm">
+                  <p className="font-semibold">{alert.headline || alert.event_type}</p>
+                  <p className="text-xs text-slate-600">{alert.address_text}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {new Date(alert.received_at).toLocaleString()}
+                  </p>
+                  {clusterCount > 1 && (
+                    <p className="text-xs font-medium text-indigo-600 mt-1">
+                      {clusterCount} alerts clustered
+                    </p>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
     </div>
   );

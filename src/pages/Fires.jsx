@@ -14,7 +14,7 @@ import FireAlertDrawer from '@/components/fires/FireAlertDrawer';
 import FireMetrics from '@/components/fires/FireMetrics';
 import FireFilters from '@/components/fires/FireFilters';
 import AddTestAlertDialog from '@/components/fires/AddTestAlertDialog';
-import { generateAlertSummary } from '@/components/services/FireAlertService';
+import { generateAlertSummary, clusterDuplicateAlerts } from '@/components/services/FireAlertService';
 
 export default function Fires() {
   const queryClient = useQueryClient();
@@ -24,6 +24,8 @@ export default function Fires() {
   const [showTestDialog, setShowTestDialog] = useState(false);
   const [summaries, setSummaries] = useState({});
   const [loadingSummaries, setLoadingSummaries] = useState(false);
+  const [clusters, setClusters] = useState([]);
+  const [loadingClusters, setLoadingClusters] = useState(false);
   
   const [filters, setFilters] = useState({
     timeWindow: '24h',
@@ -123,6 +125,55 @@ export default function Fires() {
     setLoadingSummaries(false);
   };
 
+  const handleClusterAlerts = async () => {
+    if (alerts.length < 2) return;
+    
+    setLoadingClusters(true);
+    try {
+      const activeAlerts = alerts.filter(a => a.status === 'New' || a.status === 'Converted');
+      const { clusters: newClusters, updates } = await clusterDuplicateAlerts(activeAlerts);
+      
+      // Apply updates to mark stale alerts
+      for (const update of updates) {
+        await base44.entities.FireAlert.update(update.id, update.data);
+      }
+      
+      setClusters(newClusters);
+      queryClient.invalidateQueries(['fireAlerts']);
+    } catch (error) {
+      console.error('Clustering failed:', error);
+    }
+    setLoadingClusters(false);
+  };
+
+  // Group alerts by cluster for display
+  const groupedAlerts = useMemo(() => {
+    const grouped = new Map();
+    
+    for (const alert of alerts) {
+      if (alert.cluster_id) {
+        if (!grouped.has(alert.cluster_id)) {
+          grouped.set(alert.cluster_id, []);
+        }
+        grouped.get(alert.cluster_id).push(alert);
+      } else {
+        // Unclustered alerts get their own group
+        grouped.set(alert.id, [alert]);
+      }
+    }
+    
+    // Sort each cluster to put primary first
+    for (const [key, group] of grouped.entries()) {
+      group.sort((a, b) => {
+        if (a.primary_alert_id === b.id) return 1;
+        if (b.primary_alert_id === a.id) return -1;
+        return 0;
+      });
+    }
+    
+    return Array.from(grouped.values());
+  }, [alerts]);
+
   if (!user) {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
   }
@@ -170,25 +221,47 @@ export default function Fires() {
 
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-600">{alerts.length} alerts</p>
-              <Button 
-                onClick={handleGenerateSummaries}
-                variant="outline" 
-                size="sm"
-                disabled={loadingSummaries || alerts.length === 0}
-              >
-                {loadingSummaries ? (
-                  <>
-                    <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3 h-3 mr-2" />
-                    AI Summaries
-                  </>
-                )}
-              </Button>
+              <p className="text-sm text-slate-600">
+                {alerts.length} alerts • {groupedAlerts.length} groups
+              </p>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleClusterAlerts}
+                  variant="outline" 
+                  size="sm"
+                  disabled={loadingClusters || alerts.length < 2}
+                >
+                  {loadingClusters ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                      Clustering...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3 mr-2" />
+                      Find Duplicates
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={handleGenerateSummaries}
+                  variant="outline" 
+                  size="sm"
+                  disabled={loadingSummaries || alerts.length === 0}
+                >
+                  {loadingSummaries ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3 mr-2" />
+                      AI Summaries
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
             <div className="max-h-[500px] overflow-y-auto border rounded">
@@ -204,26 +277,35 @@ export default function Fires() {
                 </div>
               ) : (
                 <div className="divide-y">
-                  {alerts.map(alert => {
-                    const summary = summaries[alert.id];
+                  {groupedAlerts.map((group, groupIdx) => {
+                    const primaryAlert = group.find(a => !a.primary_alert_id) || group[0];
+                    const staleAlerts = group.filter(a => a.status === 'Stale');
+                    const summary = summaries[primaryAlert.id];
+                    const isCluster = group.length > 1;
+                    
                     return (
                       <div 
-                        key={alert.id} 
-                        className="p-4 hover:bg-slate-50 cursor-pointer transition-colors"
-                        onClick={() => handleAlertClick(alert)}
+                        key={`group-${groupIdx}`}
+                        className={`p-4 hover:bg-slate-50 cursor-pointer transition-colors ${isCluster ? 'border-l-4 border-l-indigo-400' : ''}`}
+                        onClick={() => handleAlertClick(primaryAlert)}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-semibold text-slate-900 truncate">
-                                {alert.headline || alert.event_type || 'Fire Alert'}
+                                {primaryAlert.headline || primaryAlert.event_type || 'Fire Alert'}
                               </h3>
                               <Badge 
-                                variant={alert.status === 'New' ? 'default' : alert.status === 'Converted' ? 'success' : 'secondary'}
+                                variant={primaryAlert.status === 'New' ? 'default' : primaryAlert.status === 'Converted' ? 'success' : 'secondary'}
                                 className="text-xs shrink-0"
                               >
-                                {alert.status}
+                                {primaryAlert.status}
                               </Badge>
+                              {isCluster && (
+                                <Badge variant="outline" className="text-xs shrink-0">
+                                  {group.length} alerts clustered
+                                </Badge>
+                              )}
                             </div>
                             
                             {summary && (
@@ -236,29 +318,29 @@ export default function Fires() {
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
                               <span className="flex items-center gap-1">
                                 <MapPin className="w-3 h-3" />
-                                {alert.address_text || `${alert.city}, ${alert.state}`}
+                                {primaryAlert.address_text || `${primaryAlert.city}, ${primaryAlert.state}`}
                               </span>
                               <span className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
-                                {new Date(alert.received_at).toLocaleString('en-US', { 
+                                {new Date(primaryAlert.received_at).toLocaleString('en-US', { 
                                   month: 'short', 
                                   day: 'numeric', 
                                   hour: '2-digit', 
                                   minute: '2-digit' 
                                 })}
                               </span>
-                              {alert.severity && (
-                                <Badge variant={alert.severity === 'high' ? 'destructive' : 'secondary'} className="text-xs h-5">
-                                  {alert.severity}
+                              {primaryAlert.severity && (
+                                <Badge variant={primaryAlert.severity === 'high' ? 'destructive' : 'secondary'} className="text-xs h-5">
+                                  {primaryAlert.severity}
                                 </Badge>
                               )}
-                              {alert.confidence && (
+                              {primaryAlert.confidence && (
                                 <span className="text-slate-500">
-                                  {Math.round(alert.confidence * 100)}% confident
+                                  {Math.round(primaryAlert.confidence * 100)}% confident
                                 </span>
                               )}
                               <span className="text-slate-400">
-                                {alert.source}
+                                {primaryAlert.source}
                               </span>
                             </div>
                             
@@ -271,6 +353,12 @@ export default function Fires() {
                                 ))}
                               </div>
                             )}
+                            
+                            {staleAlerts.length > 0 && (
+                              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1">
+                                <span>+{staleAlerts.length} older duplicate(s) marked as stale</span>
+                              </div>
+                            )}
                           </div>
                           
                           <Button 
@@ -278,7 +366,7 @@ export default function Fires() {
                             variant="ghost"
                             onClick={(e) => { 
                               e.stopPropagation(); 
-                              handleAlertClick(alert); 
+                              handleAlertClick(primaryAlert); 
                             }}
                           >
                             View
