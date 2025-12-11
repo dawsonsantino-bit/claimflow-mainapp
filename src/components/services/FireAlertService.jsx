@@ -171,6 +171,53 @@ Return the index (0-based) of the matching alert if duplicate, or -1 if unique.`
 }
 
 /**
+ * Generates a concise summary of the alert for list view
+ */
+export async function generateAlertSummary(alert) {
+  try {
+    const prompt = `Generate a concise 1-2 sentence summary of this fire alert for quick scanning:
+
+Headline: ${alert.headline || 'N/A'}
+Description: ${alert.description || 'N/A'}
+Event Type: ${alert.event_type || 'N/A'}
+Location: ${alert.address_text || `${alert.city}, ${alert.state}`}
+
+Create a brief, actionable summary that captures:
+- What happened (type of fire/incident)
+- Key urgency indicators
+- Any notable details about damage or response
+
+Keep it under 100 characters if possible. Be direct and clear.`;
+
+    const result = await base44.integrations.Core.InvokeLLM({
+      prompt,
+      response_json_schema: {
+        type: "object",
+        properties: {
+          summary: { type: "string" },
+          key_details: {
+            type: "array",
+            items: { type: "string" }
+          }
+        },
+        required: ["summary"]
+      }
+    });
+
+    return {
+      summary: result.summary,
+      keyDetails: result.key_details || []
+    };
+  } catch (error) {
+    console.error('Summary generation failed:', error);
+    return {
+      summary: alert.headline || alert.description?.substring(0, 100) || 'Fire alert',
+      keyDetails: []
+    };
+  }
+}
+
+/**
  * Enhances an alert with AI-powered analysis
  */
 export async function enhanceFireAlert(alertData, existingAlerts = []) {
