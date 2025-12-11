@@ -109,7 +109,10 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
             )}
 
             {user.is_app_owner && (
-                <NavItem icon={Shield} label="App Owner" path="Owner" />
+                <>
+                  <NavItem icon={Shield} label="App Owner" path="Owner" />
+                  <NavItem icon={Shield} label="System Test" path="OwnerTest" />
+                </>
             )}
 
             {APP_ENV === 'DEV' && !user.is_app_owner && (

@@ -15,6 +15,7 @@ import Owner from './pages/Owner';
 import CompanySettings from './pages/CompanySettings';
 import RoleRescue from './pages/RoleRescue';
 import Fires from './pages/Fires';
+import OwnerTest from './pages/OwnerTest';
 import __Layout from './Layout.jsx';
 
 
@@ -36,6 +37,7 @@ export const PAGES = {
     "CompanySettings": CompanySettings,
     "RoleRescue": RoleRescue,
     "Fires": Fires,
+    "OwnerTest": OwnerTest,
 }
 
 export const pagesConfig = {
