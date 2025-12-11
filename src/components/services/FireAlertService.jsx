@@ -324,20 +324,34 @@ Return clusters where each cluster has alert IDs and the primary alert ID.`;
 export async function enhanceFireAlert(alertData, existingAlerts = []) {
   const enhanced = { ...alertData };
 
-  // 1. Analyze severity and confidence if not provided
-  if (!enhanced.severity || !enhanced.confidence) {
-    const analysis = await analyzeAlertSeverity(
-      enhanced.headline,
-      enhanced.description,
-      enhanced.event_type
-    );
-    
-    if (!enhanced.severity) enhanced.severity = analysis.severity;
-    if (!enhanced.confidence) enhanced.confidence = analysis.confidence;
-    
-    // Store reasoning in raw data
-    if (!enhanced.raw) enhanced.raw = {};
-    enhanced.raw.ai_analysis = analysis.reasoning;
+  // 1. Always analyze with AI for consistent quality
+  const analysis = await analyzeAlertSeverity(
+    enhanced.headline,
+    enhanced.description,
+    enhanced.event_type
+  );
+  
+  // Store original source data
+  if (!enhanced.raw) enhanced.raw = {};
+  enhanced.raw.source_severity = enhanced.severity;
+  enhanced.raw.source_confidence = enhanced.confidence;
+  enhanced.raw.ai_analysis = analysis.reasoning;
+  enhanced.raw.ai_severity = analysis.severity;
+  enhanced.raw.ai_confidence = analysis.confidence;
+  
+  // Decision logic: Use AI scores if source is missing or low confidence
+  const sourceConfidence = enhanced.confidence || 0;
+  const shouldOverride = !enhanced.severity || 
+                         !enhanced.confidence || 
+                         sourceConfidence < 0.5 || 
+                         analysis.confidence > sourceConfidence + 0.2;
+  
+  if (shouldOverride) {
+    enhanced.severity = analysis.severity;
+    enhanced.confidence = analysis.confidence;
+    enhanced.raw.used_ai_override = true;
+  } else {
+    enhanced.raw.used_ai_override = false;
   }
 
   // 2. Geocode address if coordinates missing
