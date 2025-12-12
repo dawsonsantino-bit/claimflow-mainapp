@@ -1,280 +1,455 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Copy, Check } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Loader2, UserPlus, Shield, ShieldOff, KeyRound, AlertCircle, Copy, CheckCircle } from 'lucide-react';
 import { USER_ROLES } from '@/components/job/JobConstants';
-import { toast } from 'sonner';
-// Password utility is implemented inline below
+import toast from 'react-hot-toast';
 
-export default function UsersPage() {
-    const queryClient = useQueryClient();
-    const [currentUser, setCurrentUser] = useState(null);
-    const [isInviteOpen, setIsInviteOpen] = useState(false);
-    const [inviteData, setInviteData] = useState({ email: '', role: '', name: '' });
-    const [isInviting, setIsInviting] = useState(false);
-    const [tempPasswordData, setTempPasswordData] = useState(null); // { email, password }
+export default function Users() {
+  const queryClient = useQueryClient();
+  const [user, setUser] = useState(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [filterRole, setFilterRole] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [tempPasswordDisplay, setTempPasswordDisplay] = useState(null);
 
-    useEffect(() => {
-        base44.auth.me().then(setCurrentUser).catch(() => {});
-    }, []);
+  // Add User Form State
+  const [newUser, setNewUser] = useState({
+    email: '',
+    full_name: '',
+    business_role: 'SalesRep'
+  });
 
-    const { data: users, isLoading } = useQuery({
-        queryKey: ['users'],
-        queryFn: () => base44.entities.User.list({}, { created_date: -1 }),
-    });
-
-    const generateToken = () => {
-        return Array.from(crypto.getRandomValues(new Uint8Array(32)))
-            .map(b => b.toString(16).padStart(2, '0')).join('');
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const u = await base44.auth.me();
+        setUser(u);
+      } catch (e) {
+        console.error('Auth error', e);
+      }
     };
+    init();
+  }, []);
 
-    const generateTempPassword = () => {
-        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
-        let pass = "";
-        for (let i = 0; i < 12; i++) {
-            pass += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return pass;
-    };
+  const { data: allUsers = [], isLoading } = useQuery({
+    queryKey: ['allUsers', user?.company_id],
+    queryFn: async () => {
+      if (!user?.company_id) return [];
+      const users = await base44.entities.User.list();
+      return users.filter(u => u.company_id === user.company_id);
+    },
+    enabled: !!user?.company_id
+  });
 
-    const handleInvite = async () => {
-        if (!inviteData.email || !inviteData.role) {
-            toast.error("Email and Role are required.");
-            return;
-        }
-
-        setIsInviting(true);
-        setTempPasswordData(null);
-
-        try {
-            const email = inviteData.email.toLowerCase();
-            
-            // Check if user exists
-            let user = null;
-            const existing = await base44.entities.User.list({ email });
-            
-            // Prepare Invite Data
-            const token = generateToken();
-            const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
-            
-            const userData = {
-                email: email,
-                full_name: inviteData.name || email.split('@')[0],
-                business_role: inviteData.role,
-                invite_token: token,
-                invite_expires_at: expiresAt,
-                invited_at: new Date().toISOString(),
-                status: 'Invited'
-            };
-
-            if (existing && existing.length > 0) {
-                user = existing[0];
-                // Update existing
-                await base44.entities.User.update(user.id, userData);
-            } else {
-                // Create new
-                // Note: This might fail if strict rules apply, but usually Admins can create
-                user = await base44.entities.User.create({
-                    ...userData,
-                    password: generateToken() // Random initial password (unusable)
-                });
-            }
-
-            // Audit Log
-            await base44.entities.UserInviteAudit.create({
-                email: email,
-                role: inviteData.role,
-                inviter_user_id: currentUser.id,
-                created_at: new Date().toISOString()
-            });
-
-            // Try to send email
-            try {
-                const inviteLink = `${window.location.origin}/invite/${token}`;
-                await base44.integrations.Core.SendEmail({
-                    to: email,
-                    subject: "You're invited to ClaimFlow",
-                    body: `Hello ${inviteData.name || ''},\n\nYou have been invited to join ClaimFlow as a ${inviteData.role}.\n\nPlease click the link below to accept your invitation and set your password:\n\n${inviteLink}\n\nThis link expires in 7 days.\n\nBest regards,\nClaimFlow Team`
-                });
-                toast.success(`Invitation sent to ${email}`);
-                setIsInviteOpen(false);
-            } catch (emailError) {
-                console.warn("SMTP likely missing:", emailError);
-                
-                // Fallback: Temp Password Flow
-                const tempPass = generateTempPassword();
-                // Update user with temp password and clear invite token (or keep it? Prompt says clear invite_token)
-                // "If SMTP not present: Create/Update User with role and a TEMP password (random), clear invite_token."
-                
-                await base44.entities.User.update(user.id, {
-                    password: tempPass, // Note: This assumes we can set password directly. If not, this flow blocks.
-                    invite_token: null,
-                    invite_expires_at: null,
-                    status: 'Invited' // Still invited status until they log in? Or 'Active'? Prompt says "Invited otherwise"
-                });
-
-                setTempPasswordData({ email, password: tempPass });
-                toast.warning("Email failed (SMTP missing). Generated temporary password.");
-                // Keep dialog open to show banner
-            }
-
-            queryClient.invalidateQueries(['users']);
-            setInviteData({ email: '', role: '', name: '' }); // Reset form but keep dialog if temp pass
-
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to invite user: " + (error.message || "Unknown error"));
-        } finally {
-            setIsInviting(false);
-        }
-    };
-
-    const handleCloseInvite = () => {
-        setIsInviteOpen(false);
-        setTempPasswordData(null);
-    };
-
-    if (isLoading || !currentUser) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
-
-    // Only CompanyAdmin
-    if (currentUser.business_role !== USER_ROLES.CompanyAdmin) {
-        return <div className="p-8 text-red-600">Access Denied. Company Admin only.</div>;
+  // Filter users
+  const filteredUsers = allUsers.filter(u => {
+    if (filterRole !== 'all' && u.business_role !== filterRole) return false;
+    if (filterStatus !== 'all') {
+      if (filterStatus === 'suspended' && !u.is_suspended) return false;
+      if (filterStatus === 'active' && u.is_suspended) return false;
+      if (filterStatus === 'pending' && !u.invite_token) return false;
     }
+    return true;
+  });
 
+  // Mutations
+  const addUserMutation = useMutation({
+    mutationFn: async (userData) => {
+      const tempPassword = Math.random().toString(36).slice(-10).toUpperCase();
+      const newUserData = {
+        ...userData,
+        company_id: user.company_id,
+        temp_password: tempPassword,
+        email: userData.email.toLowerCase()
+      };
+      
+      const createdUser = await base44.entities.User.create(newUserData);
+      
+      await base44.entities.UserAction.create({
+        user_id: user.id,
+        target_user_id: createdUser.id,
+        action_type: 'AddUser',
+        details: `Added ${userData.email} as ${userData.business_role}`,
+        timestamp: new Date().toISOString()
+      });
+      
+      return { user: createdUser, tempPassword };
+    },
+    onSuccess: ({ user: createdUser, tempPassword }) => {
+      queryClient.invalidateQueries(['allUsers']);
+      setTempPasswordDisplay({
+        email: createdUser.email,
+        password: tempPassword
+      });
+      toast.success(`User ${createdUser.email} created`);
+      setNewUser({ email: '', full_name: '', business_role: 'SalesRep' });
+    },
+    onError: (error) => {
+      toast.error(`Failed: ${error.message}`);
+    }
+  });
+
+  const toggleSuspendMutation = useMutation({
+    mutationFn: async ({ userId, suspend }) => {
+      await base44.entities.User.update(userId, { is_suspended: suspend });
+      await base44.entities.UserAction.create({
+        user_id: user.id,
+        target_user_id: userId,
+        action_type: suspend ? 'SuspendUser' : 'EnableUser',
+        details: suspend ? 'Account suspended' : 'Account enabled',
+        timestamp: new Date().toISOString()
+      });
+    },
+    onSuccess: (_, { suspend }) => {
+      queryClient.invalidateQueries(['allUsers']);
+      toast.success(suspend ? 'User suspended' : 'User enabled');
+    },
+    onError: (error) => {
+      toast.error(`Failed: ${error.message}`);
+    }
+  });
+
+  const changeRoleMutation = useMutation({
+    mutationFn: async ({ userId, newRole }) => {
+      await base44.entities.User.update(userId, { business_role: newRole });
+      await base44.entities.UserAction.create({
+        user_id: user.id,
+        target_user_id: userId,
+        action_type: 'ChangeRole',
+        details: `Role changed to ${newRole}`,
+        timestamp: new Date().toISOString()
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['allUsers']);
+      toast.success('Role updated');
+    },
+    onError: (error) => {
+      toast.error(`Failed: ${error.message}`);
+    }
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (userId) => {
+      const tempPassword = Math.random().toString(36).slice(-10).toUpperCase();
+      await base44.entities.User.update(userId, { temp_password: tempPassword });
+      await base44.entities.UserAction.create({
+        user_id: user.id,
+        target_user_id: userId,
+        action_type: 'ResetPassword',
+        details: 'Password reset',
+        timestamp: new Date().toISOString()
+      });
+      return tempPassword;
+    },
+    onSuccess: (tempPassword, userId) => {
+      const targetUser = allUsers.find(u => u.id === userId);
+      setTempPasswordDisplay({
+        email: targetUser?.email,
+        password: tempPassword
+      });
+      toast.success('Password reset');
+    },
+    onError: (error) => {
+      toast.error(`Failed: ${error.message}`);
+    }
+  });
+
+  const handleAddUser = () => {
+    if (!newUser.email) {
+      toast.error('Email is required');
+      return;
+    }
+    addUserMutation.mutate(newUser);
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied');
+  };
+
+  if (!user) {
+    return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
+  }
+
+  if (![USER_ROLES.CompanyAdmin].includes(user.business_role) && !user.is_app_owner) {
     return (
-        <div className="max-w-6xl mx-auto py-8 px-4 space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-900">User Management</h1>
-                    <p className="text-slate-500">Manage system users and invitations.</p>
-                </div>
-                <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="bg-blue-600 hover:bg-blue-700"><Plus className="w-4 h-4 mr-2" /> Invite User</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Invite New User</DialogTitle>
-                            <DialogDescription>Send an email invitation or generate a temporary password.</DialogDescription>
-                        </DialogHeader>
-                        
-                        {!tempPasswordData ? (
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label>Email Address *</Label>
-                                    <Input 
-                                        placeholder="user@example.com" 
-                                        value={inviteData.email}
-                                        onChange={e => setInviteData({...inviteData, email: e.target.value})}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Full Name (Optional)</Label>
-                                    <Input 
-                                        placeholder="John Doe" 
-                                        value={inviteData.name}
-                                        onChange={e => setInviteData({...inviteData, name: e.target.value})}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Role *</Label>
-                                    <Select value={inviteData.role} onValueChange={v => setInviteData({...inviteData, role: v})}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a role" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {Object.values(USER_ROLES).map(role => (
-                                                <SelectItem key={role} value={role}>{role}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="py-4 space-y-4">
-                                <div className="bg-amber-50 border border-amber-200 rounded p-4">
-                                    <h4 className="font-semibold text-amber-800 mb-2">Email Delivery Failed</h4>
-                                    <p className="text-sm text-amber-700 mb-3">SMTP is likely not configured. Please copy this temporary password and send it to the user manually.</p>
-                                    
-                                    <div className="bg-white p-3 border rounded flex items-center justify-between">
-                                        <code className="text-lg font-mono text-slate-900">{tempPasswordData.password}</code>
-                                        <Button 
-                                            size="sm" 
-                                            variant="ghost" 
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(tempPasswordData.password);
-                                                toast.success("Copied to clipboard");
-                                            }}
-                                        >
-                                            <Copy className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                    <p className="text-xs text-slate-500 mt-2">For user: <span className="font-medium">{tempPasswordData.email}</span></p>
-                                </div>
-                            </div>
-                        )}
-
-                        <DialogFooter>
-                            {!tempPasswordData ? (
-                                <>
-                                    <Button variant="outline" onClick={() => setIsInviteOpen(false)}>Cancel</Button>
-                                    <Button onClick={handleInvite} disabled={isInviting}>
-                                        {isInviting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                                        Send Invitation
-                                    </Button>
-                                </>
-                            ) : (
-                                <Button onClick={handleCloseInvite}>Close</Button>
-                            )}
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </div>
-
-            <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Invited</TableHead>
-                            <TableHead>Created</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {users?.map(user => (
-                            <TableRow key={user.id}>
-                                <TableCell className="font-medium">{user.email}</TableCell>
-                                <TableCell>{user.full_name || '-'}</TableCell>
-                                <TableCell><Badge variant="outline">{user.business_role}</Badge></TableCell>
-                                <TableCell>
-                                    {user.status === 'Invited' || (user.invite_token && !user.invite_expires_at) ? (
-                                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200">Invited</Badge>
-                                    ) : (
-                                        <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-green-200">Active</Badge>
-                                    )}
-                                </TableCell>
-                                <TableCell>{user.invited_at ? new Date(user.invited_at).toLocaleDateString() : '-'}</TableCell>
-                                <TableCell>{new Date(user.created_date).toLocaleDateString()}</TableCell>
-                            </TableRow>
-                        ))}
-                        {(!users || users.length === 0) && (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center py-8 text-slate-500">No users found.</TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
-        </div>
+      <div className="p-8 text-center">
+        <h2 className="text-xl font-semibold text-red-600 mb-2">Access Denied</h2>
+        <p className="text-slate-500">User management is only available to Company Admins.</p>
+      </div>
     );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
+          <p className="text-sm text-slate-500">Manage users, roles, and access</p>
+        </div>
+        <Button onClick={() => setShowAddDialog(true)}>
+          <UserPlus className="w-4 h-4 mr-2" />
+          Add User
+        </Button>
+      </div>
+
+      <Card className="border-amber-200 bg-amber-50">
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+            <div className="text-sm text-amber-800">
+              <p className="font-semibold mb-1">Backend Functions Required</p>
+              <p>Full access control (login gate, rate limiting, server-side role enforcement, email invites) requires backend functions. Enable in Settings to unlock these features.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Filters</CardTitle>
+        </CardHeader>
+        <CardContent className="flex gap-4">
+          <div className="flex-1">
+            <Label>Role</Label>
+            <Select value={filterRole} onValueChange={setFilterRole}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                {Object.values(USER_ROLES).map(role => (
+                  <SelectItem key={role} value={role}>{role}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1">
+            <Label>Status</Label>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="pending">Invite Pending</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">{filteredUsers.length} Users</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <Loader2 className="animate-spin" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last Login</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map(u => (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">{u.email}</TableCell>
+                    <TableCell>{u.full_name || '-'}</TableCell>
+                    <TableCell>
+                      <Select
+                        value={u.business_role}
+                        onValueChange={(newRole) => changeRoleMutation.mutate({ userId: u.id, newRole })}
+                        disabled={u.id === user.id}
+                      >
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.values(USER_ROLES).map(role => (
+                            <SelectItem key={role} value={role}>{role}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      {u.is_suspended ? (
+                        <Badge variant="destructive">Suspended</Badge>
+                      ) : u.invite_token ? (
+                        <Badge variant="secondary">Invite Pending</Badge>
+                      ) : (
+                        <Badge variant="success">Active</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-600">
+                      {u.last_login_at 
+                        ? new Date(u.last_login_at).toLocaleDateString()
+                        : 'Never'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant={u.is_suspended ? "outline" : "ghost"}
+                          onClick={() => toggleSuspendMutation.mutate({ 
+                            userId: u.id, 
+                            suspend: !u.is_suspended 
+                          })}
+                          disabled={u.id === user.id}
+                        >
+                          {u.is_suspended ? (
+                            <><Shield className="w-3 h-3 mr-1" /> Enable</>
+                          ) : (
+                            <><ShieldOff className="w-3 h-3 mr-1" /> Suspend</>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => resetPasswordMutation.mutate(u.id)}
+                        >
+                          <KeyRound className="w-3 h-3 mr-1" />
+                          Reset
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+            <DialogDescription>Create a new user account</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Email *</Label>
+              <Input
+                type="email"
+                value={newUser.email}
+                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div>
+              <Label>Full Name</Label>
+              <Input
+                value={newUser.full_name}
+                onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                placeholder="John Doe"
+              />
+            </div>
+            <div>
+              <Label>Role *</Label>
+              <Select 
+                value={newUser.business_role} 
+                onValueChange={(role) => setNewUser({ ...newUser, business_role: role })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(USER_ROLES).map(role => (
+                    <SelectItem key={role} value={role}>{role}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddUser} disabled={addUserMutation.isPending}>
+              {addUserMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</>
+              ) : (
+                'Create User'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {tempPasswordDisplay && (
+        <Dialog open={!!tempPasswordDisplay} onOpenChange={() => setTempPasswordDisplay(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                User Created
+              </DialogTitle>
+              <DialogDescription>Share this temporary password with the user</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Email</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input value={tempPasswordDisplay.email} readOnly />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(tempPasswordDisplay.email)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <Label>Temporary Password</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input 
+                    value={tempPasswordDisplay.password} 
+                    readOnly 
+                    className="font-mono text-lg"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(tempPasswordDisplay.password)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="text-sm text-amber-700 bg-amber-50 p-3 rounded border border-amber-200">
+                <AlertCircle className="w-4 h-4 inline mr-2" />
+                This password will not be shown again. Copy it before closing.
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setTempPasswordDisplay(null)}>Done</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
 }
