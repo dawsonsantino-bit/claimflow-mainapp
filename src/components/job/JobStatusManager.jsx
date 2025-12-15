@@ -41,7 +41,8 @@ export default function JobStatusManager({ job, user }) {
 
       // 2. Update job
       await base44.entities.Job.update(job.id, {
-        current_status: status
+        current_status: status,
+        is_closed: status === JOB_STATUSES.ContractorPaidCaseClosed
       });
 
       // Notify
