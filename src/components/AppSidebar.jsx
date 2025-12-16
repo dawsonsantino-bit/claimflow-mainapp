@@ -14,15 +14,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import { APP_ENV } from '@/components/AppConfig';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function AppSidebar({ user, isOpen, setIsOpen }) {
   const location = useLocation();
+  const { logout } = useAuth();
   
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
-  
-  const handleLogout = async () => {
-    await base44.auth.logout();
-  };
 
   const NavItem = ({ icon: Icon, label, path }) => (
     <Link 
@@ -153,7 +151,7 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
             <Button 
               variant="ghost" 
               className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={handleLogout}
+              onClick={logout}
             >
               <LogOut className="w-5 h-5 mr-2" />
               Sign Out
