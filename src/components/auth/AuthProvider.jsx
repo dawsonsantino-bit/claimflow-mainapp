@@ -10,23 +10,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [accessError, setAccessError] = useState(null);
 
-  const logout = async () => {
-    try { 
-      await base44.auth.logout(); 
-    } catch (e) {
-      console.error('Logout error:', e);
-    }
-    try { 
-      localStorage.removeItem("cf.currentUser"); 
-      sessionStorage.clear(); 
-    } catch (e) {}
-    setCurrentUser(null);
-    setAccessBinding(null);
-    setAccessError(null);
-    setLoading(false);
-    window.location.replace("/login");
-  };
-
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -132,7 +115,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ currentUser, accessBinding, loading, logout }}>
+    <AuthContext.Provider value={{ currentUser, accessBinding }}>
       {children}
     </AuthContext.Provider>
   );
