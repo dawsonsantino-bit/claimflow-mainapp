@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, UserPlus, Shield, ShieldOff, Trash2, AlertCircle, Info } from 'lucide-react';
+import { Loader2, UserPlus, Shield, ShieldOff, KeyRound, AlertCircle, Copy, CheckCircle } from 'lucide-react';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import toast from 'react-hot-toast';
 
@@ -19,10 +19,13 @@ export default function Users() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [tempPasswordDisplay, setTempPasswordDisplay] = useState(null);
 
-  const [newAccess, setNewAccess] = useState({
+  // Add User Form State
+  const [newUser, setNewUser] = useState({
     email: '',
-    role: 'SalesRep'
+    full_name: '',
+    business_role: 'SalesRep'
   });
 
   useEffect(() => {
@@ -37,54 +40,58 @@ export default function Users() {
     init();
   }, []);
 
-  const { data: accessBindings = [], isLoading } = useQuery({
-    queryKey: ['accessBindings', user?.company_id],
+  const { data: allUsers = [], isLoading } = useQuery({
+    queryKey: ['allUsers', user?.company_id],
     queryFn: async () => {
       if (!user?.company_id) return [];
-      const bindings = await base44.entities.AppAccessBinding.list();
-      return bindings.filter(b => b.company_id === user.company_id);
+      const users = await base44.entities.User.list();
+      return users.filter(u => u.company_id === user.company_id);
     },
     enabled: !!user?.company_id
   });
 
-  const filteredBindings = accessBindings.filter(b => {
-    if (filterRole !== 'all' && b.role !== filterRole) return false;
+  // Filter users
+  const filteredUsers = allUsers.filter(u => {
+    if (filterRole !== 'all' && u.business_role !== filterRole) return false;
     if (filterStatus !== 'all') {
-      if (filterStatus === 'suspended' && !b.is_suspended) return false;
-      if (filterStatus === 'active' && b.is_suspended) return false;
+      if (filterStatus === 'suspended' && !u.is_suspended) return false;
+      if (filterStatus === 'active' && u.is_suspended) return false;
+      if (filterStatus === 'pending' && !u.invite_token) return false;
     }
     return true;
   });
 
-  const addAccessMutation = useMutation({
-    mutationFn: async (accessData) => {
-      const email = accessData.email.toLowerCase();
+  // Mutations
+  const addUserMutation = useMutation({
+    mutationFn: async (userData) => {
+      const tempPassword = Math.random().toString(36).slice(-10).toUpperCase();
+      const newUserData = {
+        ...userData,
+        company_id: user.company_id,
+        temp_password: tempPassword,
+        email: userData.email.toLowerCase()
+      };
       
-      // Check if already exists
-      const existing = accessBindings.find(b => b.email === email);
-      if (existing) {
-        // Update existing
-        await base44.entities.AppAccessBinding.update(existing.id, {
-          role: accessData.role,
-          is_suspended: false
-        });
-        return { updated: true, email };
-      } else {
-        // Create new
-        await base44.entities.AppAccessBinding.create({
-          company_id: user.company_id,
-          email,
-          role: accessData.role,
-          is_suspended: false
-        });
-        return { updated: false, email };
-      }
+      const createdUser = await base44.entities.User.create(newUserData);
+      
+      await base44.entities.UserAction.create({
+        user_id: user.id,
+        target_user_id: createdUser.id,
+        action_type: 'AddUser',
+        details: `Added ${userData.email} as ${userData.business_role}`,
+        timestamp: new Date().toISOString()
+      });
+      
+      return { user: createdUser, tempPassword };
     },
-    onSuccess: ({ updated, email }) => {
-      queryClient.invalidateQueries(['accessBindings']);
-      toast.success(updated ? `Access updated for ${email}` : `Access granted to ${email}`);
-      setNewAccess({ email: '', role: 'SalesRep' });
-      setShowAddDialog(false);
+    onSuccess: ({ user: createdUser, tempPassword }) => {
+      queryClient.invalidateQueries(['allUsers']);
+      setTempPasswordDisplay({
+        email: createdUser.email,
+        password: tempPassword
+      });
+      toast.success(`User ${createdUser.email} created`);
+      setNewUser({ email: '', full_name: '', business_role: 'SalesRep' });
     },
     onError: (error) => {
       toast.error(`Failed: ${error.message}`);
@@ -92,12 +99,19 @@ export default function Users() {
   });
 
   const toggleSuspendMutation = useMutation({
-    mutationFn: async ({ bindingId, suspend }) => {
-      await base44.entities.AppAccessBinding.update(bindingId, { is_suspended: suspend });
+    mutationFn: async ({ userId, suspend }) => {
+      await base44.entities.User.update(userId, { is_suspended: suspend });
+      await base44.entities.UserAction.create({
+        user_id: user.id,
+        target_user_id: userId,
+        action_type: suspend ? 'SuspendUser' : 'EnableUser',
+        details: suspend ? 'Account suspended' : 'Account enabled',
+        timestamp: new Date().toISOString()
+      });
     },
     onSuccess: (_, { suspend }) => {
-      queryClient.invalidateQueries(['accessBindings']);
-      toast.success(suspend ? 'Access suspended' : 'Access enabled');
+      queryClient.invalidateQueries(['allUsers']);
+      toast.success(suspend ? 'User suspended' : 'User enabled');
     },
     onError: (error) => {
       toast.error(`Failed: ${error.message}`);
@@ -105,11 +119,18 @@ export default function Users() {
   });
 
   const changeRoleMutation = useMutation({
-    mutationFn: async ({ bindingId, newRole }) => {
-      await base44.entities.AppAccessBinding.update(bindingId, { role: newRole });
+    mutationFn: async ({ userId, newRole }) => {
+      await base44.entities.User.update(userId, { business_role: newRole });
+      await base44.entities.UserAction.create({
+        user_id: user.id,
+        target_user_id: userId,
+        action_type: 'ChangeRole',
+        details: `Role changed to ${newRole}`,
+        timestamp: new Date().toISOString()
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['accessBindings']);
+      queryClient.invalidateQueries(['allUsers']);
       toast.success('Role updated');
     },
     onError: (error) => {
@@ -117,25 +138,43 @@ export default function Users() {
     }
   });
 
-  const removeAccessMutation = useMutation({
-    mutationFn: async (bindingId) => {
-      await base44.entities.AppAccessBinding.delete(bindingId);
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (userId) => {
+      const tempPassword = Math.random().toString(36).slice(-10).toUpperCase();
+      await base44.entities.User.update(userId, { temp_password: tempPassword });
+      await base44.entities.UserAction.create({
+        user_id: user.id,
+        target_user_id: userId,
+        action_type: 'ResetPassword',
+        details: 'Password reset',
+        timestamp: new Date().toISOString()
+      });
+      return tempPassword;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['accessBindings']);
-      toast.success('Access removed');
+    onSuccess: (tempPassword, userId) => {
+      const targetUser = allUsers.find(u => u.id === userId);
+      setTempPasswordDisplay({
+        email: targetUser?.email,
+        password: tempPassword
+      });
+      toast.success('Password reset');
     },
     onError: (error) => {
       toast.error(`Failed: ${error.message}`);
     }
   });
 
-  const handleAddAccess = () => {
-    if (!newAccess.email) {
+  const handleAddUser = () => {
+    if (!newUser.email) {
       toast.error('Email is required');
       return;
     }
-    addAccessMutation.mutate(newAccess);
+    addUserMutation.mutate(newUser);
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied');
   };
 
   if (!user) {
@@ -146,25 +185,31 @@ export default function Users() {
     return (
       <div className="p-8 text-center">
         <h2 className="text-xl font-semibold text-red-600 mb-2">Access Denied</h2>
-        <p className="text-slate-500">Access management is only available to Company Admins.</p>
+        <p className="text-slate-500">User management is only available to Company Admins.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">App Access Management</h1>
-        <p className="text-sm text-slate-500">Control who can access the app and their roles</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
+          <p className="text-sm text-slate-500">Manage users, roles, and access</p>
+        </div>
+        <Button onClick={() => setShowAddDialog(true)}>
+          <UserPlus className="w-4 h-4 mr-2" />
+          Add User
+        </Button>
       </div>
 
-      <Card className="border-blue-200 bg-blue-50">
+      <Card className="border-amber-200 bg-amber-50">
         <CardContent className="pt-4">
           <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-600 mt-0.5" />
-            <div className="text-sm text-blue-800">
-              <p className="font-semibold mb-1">User Invitations via Base44</p>
-              <p>User invitations and passwords are managed in Base44 → Team. This page only controls app access and roles. After adding access here, invite the user via Base44 so they can log in.</p>
+            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+            <div className="text-sm text-amber-800">
+              <p className="font-semibold mb-1">Backend Functions Required</p>
+              <p>Full access control (login gate, rate limiting, server-side role enforcement, email invites) requires backend functions. Enable in Settings to unlock these features.</p>
             </div>
           </div>
         </CardContent>
@@ -172,74 +217,43 @@ export default function Users() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Add Access</CardTitle>
+          <CardTitle className="text-lg">Filters</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <Label>Email *</Label>
-              <Input
-                type="email"
-                value={newAccess.email}
-                onChange={(e) => setNewAccess({ ...newAccess, email: e.target.value })}
-                placeholder="user@example.com"
-              />
-            </div>
-            <div className="flex-1">
-              <Label>Role *</Label>
-              <Select 
-                value={newAccess.role} 
-                onValueChange={(role) => setNewAccess({ ...newAccess, role })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.values(USER_ROLES).map(role => (
-                    <SelectItem key={role} value={role}>{role}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleAddAccess} disabled={addAccessMutation.isPending}>
-              {addAccessMutation.isPending ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Adding...</>
-              ) : (
-                <><UserPlus className="w-4 h-4 mr-2" /> Grant Access</>
-              )}
-            </Button>
+        <CardContent className="flex gap-4">
+          <div className="flex-1">
+            <Label>Role</Label>
+            <Select value={filterRole} onValueChange={setFilterRole}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                {Object.values(USER_ROLES).map(role => (
+                  <SelectItem key={role} value={role}>{role}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1">
+            <Label>Status</Label>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="pending">Invite Pending</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-lg">Access Bindings ({filteredBindings.length})</CardTitle>
-            <div className="flex gap-2">
-              <Select value={filterRole} onValueChange={setFilterRole}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Filter by role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  {Object.values(USER_ROLES).map(role => (
-                    <SelectItem key={role} value={role}>{role}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <CardTitle className="text-lg">{filteredUsers.length} Users</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -251,21 +265,23 @@ export default function Users() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Email</TableHead>
+                  <TableHead>Name</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Updated</TableHead>
+                  <TableHead>Last Login</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBindings.map(binding => (
-                  <TableRow key={binding.id}>
-                    <TableCell className="font-medium">{binding.email}</TableCell>
+                {filteredUsers.map(u => (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">{u.email}</TableCell>
+                    <TableCell>{u.full_name || '-'}</TableCell>
                     <TableCell>
                       <Select
-                        value={binding.role}
-                        onValueChange={(newRole) => changeRoleMutation.mutate({ bindingId: binding.id, newRole })}
-                        disabled={binding.email === user.email}
+                        value={u.business_role}
+                        onValueChange={(newRole) => changeRoleMutation.mutate({ userId: u.id, newRole })}
+                        disabled={u.id === user.id}
                       >
                         <SelectTrigger className="w-40">
                           <SelectValue />
@@ -278,29 +294,31 @@ export default function Users() {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      {binding.is_suspended ? (
+                      {u.is_suspended ? (
                         <Badge variant="destructive">Suspended</Badge>
+                      ) : u.invite_token ? (
+                        <Badge variant="secondary">Invite Pending</Badge>
                       ) : (
                         <Badge variant="success">Active</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-slate-600">
-                      {binding.updated_date 
-                        ? new Date(binding.updated_date).toLocaleDateString()
-                        : '-'}
+                      {u.last_login_at 
+                        ? new Date(u.last_login_at).toLocaleDateString()
+                        : 'Never'}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
-                          variant={binding.is_suspended ? "outline" : "ghost"}
+                          variant={u.is_suspended ? "outline" : "ghost"}
                           onClick={() => toggleSuspendMutation.mutate({ 
-                            bindingId: binding.id, 
-                            suspend: !binding.is_suspended 
+                            userId: u.id, 
+                            suspend: !u.is_suspended 
                           })}
-                          disabled={binding.email === user.email}
+                          disabled={u.id === user.id}
                         >
-                          {binding.is_suspended ? (
+                          {u.is_suspended ? (
                             <><Shield className="w-3 h-3 mr-1" /> Enable</>
                           ) : (
                             <><ShieldOff className="w-3 h-3 mr-1" /> Suspend</>
@@ -309,32 +327,129 @@ export default function Users() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => {
-                            if (confirm(`Remove access for ${binding.email}?`)) {
-                              removeAccessMutation.mutate(binding.id);
-                            }
-                          }}
-                          disabled={binding.email === user.email}
+                          onClick={() => resetPasswordMutation.mutate(u.id)}
                         >
-                          <Trash2 className="w-3 h-3 mr-1" />
-                          Remove
+                          <KeyRound className="w-3 h-3 mr-1" />
+                          Reset
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
                 ))}
-                {filteredBindings.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-slate-500">
-                      No access bindings found
-                    </TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+            <DialogDescription>Create a new user account</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Email *</Label>
+              <Input
+                type="email"
+                value={newUser.email}
+                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div>
+              <Label>Full Name</Label>
+              <Input
+                value={newUser.full_name}
+                onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                placeholder="John Doe"
+              />
+            </div>
+            <div>
+              <Label>Role *</Label>
+              <Select 
+                value={newUser.business_role} 
+                onValueChange={(role) => setNewUser({ ...newUser, business_role: role })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(USER_ROLES).map(role => (
+                    <SelectItem key={role} value={role}>{role}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddUser} disabled={addUserMutation.isPending}>
+              {addUserMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</>
+              ) : (
+                'Create User'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {tempPasswordDisplay && (
+        <Dialog open={!!tempPasswordDisplay} onOpenChange={() => setTempPasswordDisplay(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                User Created
+              </DialogTitle>
+              <DialogDescription>Share this temporary password with the user</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Email</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input value={tempPasswordDisplay.email} readOnly />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(tempPasswordDisplay.email)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <Label>Temporary Password</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input 
+                    value={tempPasswordDisplay.password} 
+                    readOnly 
+                    className="font-mono text-lg"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(tempPasswordDisplay.password)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="text-sm text-amber-700 bg-amber-50 p-3 rounded border border-amber-200">
+                <AlertCircle className="w-4 h-4 inline mr-2" />
+                This password will not be shown again. Copy it before closing.
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setTempPasswordDisplay(null)}>Done</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

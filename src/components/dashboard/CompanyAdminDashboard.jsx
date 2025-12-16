@@ -51,7 +51,7 @@ function StagnantJobsAlert({ user }) {
 }
 
 export default function CompanyAdminDashboard({ user }) {
-  const [showOpenOnly, setShowOpenOnly] = useState(true);
+  const [showOpenOnly, setShowOpenOnly] = useState(false);
 
   return (
     <div className="space-y-6">
