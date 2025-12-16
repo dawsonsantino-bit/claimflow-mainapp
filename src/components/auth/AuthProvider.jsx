@@ -24,7 +24,7 @@ export function AuthProvider({ children }) {
     setAccessBinding(null);
     setAccessError(null);
     setLoading(false);
-    window.location.replace("/signin");
+    window.location.replace("/login");
   };
 
   useEffect(() => {

@@ -5,8 +5,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 const roleHome = (role) => {
   if (role === "Homeowner") return "/homeowner";
   if (role === "SalesRep") return "/sales";
-  if (role === "CompanyAdmin" || role === "LocationAdmin") return "/admin";
-  return "/dashboard";
+  return "/admin";
 };
 
 export default function PublicRoute({ children }) {
