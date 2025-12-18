@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import AppSidebar from '@/components/AppSidebar';
 import { APP_ENV } from '@/components/AppConfig';
 import { AuthProvider, useAuth } from '@/components/auth/AuthProvider';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import OnboardingTour from '@/components/onboarding/OnboardingTour';
 
 export default function Layout({ children }) {
   return (
@@ -18,10 +19,19 @@ function InnerLayout({ children }) {
   const location = useLocation();
   const { currentUser } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   
   // Check for public routes
   const path = location.pathname.toLowerCase();
   const isPublic = path === '/signin' || path === '/login';
+
+  useEffect(() => {
+    if (currentUser && !currentUser.onboarding_completed) {
+      // Show onboarding after a brief delay
+      const timer = setTimeout(() => setShowOnboarding(true), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser]);
 
   if (isPublic) {
     return <main className="min-h-screen bg-slate-50">{children}</main>;
@@ -53,6 +63,15 @@ function InnerLayout({ children }) {
             Env: {APP_ENV}
           </div>
         </div>
+
+        {/* Onboarding Tour */}
+        {showOnboarding && currentUser && (
+          <OnboardingTour
+            user={currentUser}
+            onComplete={() => setShowOnboarding(false)}
+            onSkip={() => setShowOnboarding(false)}
+          />
+        )}
       </div>
     </ProtectedRoute>
   );
