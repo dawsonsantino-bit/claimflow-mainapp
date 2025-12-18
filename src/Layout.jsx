@@ -6,6 +6,7 @@ import { APP_ENV } from '@/components/AppConfig';
 import { AuthProvider, useAuth } from '@/components/auth/AuthProvider';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
+import AIAssistant from '@/components/assistant/AIAssistant';
 
 export default function Layout({ children }) {
   return (
@@ -72,6 +73,9 @@ function InnerLayout({ children }) {
             onSkip={() => setShowOnboarding(false)}
           />
         )}
+
+        {/* AI Assistant */}
+        <AIAssistant />
       </div>
     </ProtectedRoute>
   );
