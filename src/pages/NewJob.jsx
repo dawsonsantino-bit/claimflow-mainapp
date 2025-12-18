@@ -114,6 +114,17 @@ export default function NewJob() {
       }
       // -----------------------
 
+      // Generate claim ID (5-char alphanumeric)
+      const generateClaimId = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let result = '';
+        for (let i = 0; i < 5; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+      };
+      const claimId = generateClaimId();
+
       const payload = {
         ...data,
         company_id: companyId,
@@ -124,6 +135,7 @@ export default function NewJob() {
         lead_created_at: new Date().toISOString(),
         created_by: user.email,
         claim_number: claimNumber,
+        claim_id: claimId,
         is_closed: false,
         address_key: newAddrKey,
         phone_digits: newPhoneDigits
