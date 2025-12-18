@@ -5,6 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { AlertTriangle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import ContextualHelp from '@/components/onboarding/ContextualHelp';
 
 function StagnantJobsAlert({ user }) {
     const [stagnantJobs, setStagnantJobs] = useState([]);
@@ -62,6 +63,12 @@ export default function CompanyAdminDashboard({ user }) {
             <Label htmlFor="open-claims">Open Claims Only</Label>
         </div>
       </div>
+
+      <ContextualHelp
+        tipId="admin-dashboard-intro"
+        title="Welcome to your Company Dashboard!"
+        content="Monitor all jobs, track team performance, and manage your restoration business from here. Click Help in the sidebar for detailed guidance."
+      />
 
       <StagnantJobsAlert user={user} />
 

@@ -9,7 +9,8 @@ import {
   X,
   Shield,
   UserCog,
-  Flame
+  Flame,
+  HelpCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { USER_ROLES } from '@/components/job/JobConstants';
@@ -24,7 +25,7 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
     await base44.auth.logout();
   };
 
-  const NavItem = ({ icon: Icon, label, path }) => (
+  const NavItem = ({ icon: Icon, label, path, tourId }) => (
     <Link 
       to={createPageUrl(path)}
       className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -32,6 +33,7 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
           ? 'bg-slate-100 text-slate-900 font-medium' 
           : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
       }`}
+      data-tour={tourId}
     >
       <Icon className="w-5 h-5" />
       <span>{label}</span>
@@ -95,18 +97,20 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
               user.business_role === USER_ROLES.CompanyAdmin || 
               user.business_role === USER_ROLES.LocationAdmin) && (
                 <>
-                  <NavItem icon={PlusCircle} label="New Job" path="NewJob" />
-                  <NavItem icon={Flame} label="Fire Alerts" path="Fires" />
+                  <NavItem icon={PlusCircle} label="New Job" path="NewJob" tourId="new-job" />
+                  <NavItem icon={Flame} label="Fire Alerts" path="Fires" tourId="sidebar-fires" />
                 </>
             )}
 
             {user.business_role === USER_ROLES.CompanyAdmin && (
                 <>
-                    <NavItem icon={LayoutDashboard} label="All Jobs (Debug)" path="AdminJobsDebug" />
-                    <NavItem icon={UserCog} label="Users" path="Users" />
+                    <NavItem icon={LayoutDashboard} label="All Jobs (Debug)" path="AdminJobsDebug" tourId="sidebar-jobs" />
+                    <NavItem icon={UserCog} label="Users" path="Users" tourId="sidebar-users" />
                     <NavItem icon={Shield} label="Company Settings" path="CompanySettings" />
                 </>
             )}
+
+            <NavItem icon={HelpCircle} label="Help" path="Help" />
 
             {user.is_app_owner && (
                 <>

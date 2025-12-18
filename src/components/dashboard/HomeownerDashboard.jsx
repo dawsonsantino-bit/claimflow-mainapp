@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, ArrowRight, Home } from 'lucide-react';
+import ContextualHelp from '@/components/onboarding/ContextualHelp';
 
 export default function HomeownerDashboard({ user }) {
   const { data: jobs, isLoading } = useQuery({
@@ -25,6 +26,13 @@ export default function HomeownerDashboard({ user }) {
         <h1 className="text-3xl font-bold text-slate-900">Welcome, {user.full_name || 'Homeowner'}</h1>
         <p className="text-slate-500 mt-2">Track the status of your restoration claim.</p>
       </div>
+
+      <ContextualHelp
+        tipId="homeowner-dashboard-intro"
+        title="Welcome to your Job Dashboard!"
+        content="View all details about your restoration project here. Check the timeline, see photos, and read updates from your restoration team. We'll keep you informed every step of the way."
+        data-tour="job-timeline"
+      />
 
       {!jobs || jobs.length === 0 ? (
         <Card>
