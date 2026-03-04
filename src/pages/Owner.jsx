@@ -159,6 +159,11 @@ export default function Owner() {
                 <h1 className="text-3xl font-bold">App Owner Console</h1>
                 <div className="flex items-center gap-2">
                     <span className="text-sm text-slate-500">Welcome, {currentUser.email}</span>
+                    {!currentUser.company_id && (
+                        <Button variant="outline" size="sm" onClick={fixMyProfile} className="border-amber-400 text-amber-700 hover:bg-amber-50">
+                            ⚠ Fix My Profile (Assign Company)
+                        </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={toggleMyOwnerStatus}>
                         <ShieldCheck className="w-4 h-4 mr-2" />
                         Toggle Owner Mode
