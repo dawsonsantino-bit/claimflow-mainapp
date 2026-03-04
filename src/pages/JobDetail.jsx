@@ -123,11 +123,20 @@ export default function JobDetail() {
       )}
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="photos">Photos & Docs</TabsTrigger>
-          {/* Only Attorney or Admin sees Negotiations/Payments tabs fully, but Homeowner might see summary */}
-          {(isAttorney || user.business_role.includes('Admin')) && (
+          {isHomeowner && <TabsTrigger value="milestones">Milestones</TabsTrigger>}
+          {isHomeowner && <TabsTrigger value="settlement_summary">Settlement</TabsTrigger>}
+          {canEditClaim && (
+            <>
+              <TabsTrigger value="contracts">Contracts</TabsTrigger>
+              <TabsTrigger value="hygienist">Hygienist / Swab</TabsTrigger>
+              <TabsTrigger value="claim">Claim & Settlement</TabsTrigger>
+              <TabsTrigger value="disbursement">Profit & Payout</TabsTrigger>
+            </>
+          )}
+          {(isAttorney || isAdmin) && (
             <>
                 <TabsTrigger value="negotiation">Negotiation</TabsTrigger>
                 <TabsTrigger value="financials">Financials</TabsTrigger>
@@ -144,7 +153,39 @@ export default function JobDetail() {
            <JobPhotos job={job} user={user} />
         </TabsContent>
 
-        {(isAttorney || user.business_role.includes('Admin')) && (
+        {/* Homeowner-only milestone/settlement views */}
+        <TabsContent value="milestones" className="mt-6">
+          <JobClaimMilestones job={job} user={user} readonly={true} />
+        </TabsContent>
+        <TabsContent value="settlement_summary" className="mt-6">
+          <JobSettlementNumbers job={job} user={user} homeownerView={true} readonly={true} />
+        </TabsContent>
+
+        {/* Admin / SalesRep full sections */}
+        {canEditClaim && (
+          <>
+            <TabsContent value="contracts" className="mt-6">
+              <div className="space-y-6">
+                <JobContractsSection job={job} user={user} />
+              </div>
+            </TabsContent>
+            <TabsContent value="hygienist" className="mt-6">
+              <JobHygienistSection job={job} user={user} />
+            </TabsContent>
+            <TabsContent value="claim" className="mt-6">
+              <div className="space-y-6">
+                {isAdmin && <JobClaimSummaryCard job={job} />}
+                <JobClaimMilestones job={job} user={user} />
+                <JobSettlementNumbers job={job} user={user} />
+              </div>
+            </TabsContent>
+            <TabsContent value="disbursement" className="mt-6">
+              <JobDisbursement job={job} user={user} />
+            </TabsContent>
+          </>
+        )}
+
+        {(isAttorney || isAdmin) && (
             <>
                 <TabsContent value="negotiation" className="mt-6">
                     <JobNegotiations job={job} user={user} />
