@@ -66,6 +66,7 @@ import RoleRescue from './pages/RoleRescue';
 import Sales from './pages/Sales';
 import SignIn from './pages/SignIn';
 import Users from './pages/Users';
+import Demo from './pages/Demo';
 import __Layout from './Layout.jsx';
 
 
@@ -89,6 +90,7 @@ export const PAGES = {
     "Sales": Sales,
     "SignIn": SignIn,
     "Users": Users,
+    "Demo": Demo,
 }
 
 export const pagesConfig = {
