@@ -95,6 +95,9 @@ export default function JobDetail() {
 
   const isHomeowner = user.business_role === USER_ROLES.Homeowner;
   const isAttorney = user.business_role === USER_ROLES.Attorney;
+  const isAdmin = user.business_role === USER_ROLES.CompanyAdmin || user.business_role === USER_ROLES.LocationAdmin;
+  const isSalesRep = user.business_role === USER_ROLES.SalesRep;
+  const canEditClaim = isAdmin || isSalesRep;
 
   return (
     <div className="space-y-6 pb-12">
