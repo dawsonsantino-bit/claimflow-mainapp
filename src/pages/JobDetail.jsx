@@ -12,9 +12,15 @@ import JobActionPanel from '@/components/job/JobActionPanel';
 import JobOverview from '@/components/job/JobOverview';
 import JobPhotos from '@/components/job/JobPhotos';
 import JobUpdatesList from '@/components/job/JobUpdatesList';
-import JobNegotiations from '@/components/job/JobNegotiations'; // To create
-import JobPayments from '@/components/job/JobPayments'; // To create
+import JobNegotiations from '@/components/job/JobNegotiations';
+import JobPayments from '@/components/job/JobPayments';
 import JobDocumentCenter from '@/components/job/JobDocumentCenter';
+import JobContractsSection from '@/components/job/JobContractsSection';
+import JobHygienistSection from '@/components/job/JobHygienistSection';
+import JobClaimMilestones from '@/components/job/JobClaimMilestones';
+import JobSettlementNumbers from '@/components/job/JobSettlementNumbers';
+import JobDisbursement from '@/components/job/JobDisbursement';
+import JobClaimSummaryCard from '@/components/job/JobClaimSummaryCard';
 
 export default function JobDetail() {
   const queryClient = useQueryClient();
