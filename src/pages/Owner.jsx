@@ -108,6 +108,23 @@ export default function Owner() {
         searchUsers(); // Refresh
     };
 
+    const fixMyProfile = async () => {
+        if (!currentUser) return;
+        if (currentUser.company_id) {
+            alert('Your profile already has a company assigned: ' + currentUser.company_id);
+            return;
+        }
+        let comps = await base44.entities.Company.list();
+        let defaultCompany = comps.find(c => c.slug === 'default') || comps[0];
+        if (!defaultCompany) {
+            defaultCompany = await base44.entities.Company.create({ name: 'Default Company', slug: 'default' });
+            await base44.entities.ClaimSequence.create({ company_id: defaultCompany.id, last_number: 0 });
+        }
+        await base44.auth.updateMe({ company_id: defaultCompany.id });
+        alert('✅ Company assigned: ' + defaultCompany.name + '. Reloading...');
+        window.location.reload();
+    };
+
     const toggleMyOwnerStatus = async () => {
         if (!currentUser) return;
         // Toggle self
