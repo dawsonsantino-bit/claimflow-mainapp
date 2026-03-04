@@ -24,7 +24,7 @@ function InnerLayout({ children }) {
   
   // Check for public routes
   const path = location.pathname.toLowerCase();
-  const isPublic = path === '/signin' || path === '/login';
+  const isPublic = path === '/signin' || path === '/login' || path === '/demo';
 
   useEffect(() => {
     if (currentUser && !currentUser.onboarding_completed) {
