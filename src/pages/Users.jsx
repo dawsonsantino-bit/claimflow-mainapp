@@ -103,7 +103,7 @@ export default function Users() {
         await base44.integrations.Core.SendEmail({
           to: email,
           subject: 'Your ClaimFlow Account Credentials',
-          body: `Hello ${userData.full_name || email},\n\nYour account has been created on ClaimFlow.\n\nUsername: ${email}\nTemporary Password: ${password}\n\nPlease log in and change your password at your earliest convenience.\n\nRole: ${userData.business_role}\n\nBest regards,\nClaimFlow Team`
+          body: `Hello ${userData.full_name || email},\n\nYour account has been created on ClaimFlow.\n\nUsername: ${email}\nTemporary Password: ${password}\n\nClick here to log in:\nhttps://claimflow.base44.app\n\nPlease log in and change your password at your earliest convenience.\n\nRole: ${userData.business_role}\n\nBest regards,\nClaimFlow Team`
         });
 
         await base44.entities.UserAction.create({

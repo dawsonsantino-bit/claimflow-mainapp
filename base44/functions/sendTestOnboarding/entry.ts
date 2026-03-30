@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
   await base44.asServiceRole.integrations.Core.SendEmail({
     to: 'dawson.santino@gmail.com',
     subject: 'Your ClaimFlow Account Credentials',
-    body: `Hello Dawson,\n\nYour account has been created on ClaimFlow.\n\nUsername: dawson.santino@gmail.com\nTemporary Password: ${password}\n\nPlease log in and change your password at your earliest convenience.\n\nRole: SalesRep\n\nBest regards,\nClaimFlow Team`
+    body: `Hello Dawson,\n\nYour account has been created on ClaimFlow.\n\nUsername: dawson.santino@gmail.com\nTemporary Password: ${password}\n\nClick here to log in:\nhttps://claimflow.base44.app\n\nPlease log in and change your password at your earliest convenience.\n\nRole: SalesRep\n\nBest regards,\nClaimFlow Team`
   });
 
   return Response.json({ success: true, password });
