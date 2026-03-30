@@ -95,9 +95,14 @@ export default function JobDetail() {
 
   const isHomeowner = user.business_role === USER_ROLES.Homeowner;
   const isAttorney = user.business_role === USER_ROLES.Attorney;
-  const isAdmin = user.business_role === USER_ROLES.CompanyAdmin || user.business_role === USER_ROLES.LocationAdmin;
+  const isCompanyAdmin = user.business_role === USER_ROLES.CompanyAdmin;
+  const isLocationAdmin = user.business_role === USER_ROLES.LocationAdmin;
+  const isAdmin = isCompanyAdmin || isLocationAdmin;
   const isSalesRep = user.business_role === USER_ROLES.SalesRep;
-  const canEditClaim = isAdmin || isSalesRep;
+  // SalesRep can edit workflow steps but NOT financial data
+  const canEditWorkflow = isAdmin || isSalesRep;
+  // Only CompanyAdmin can edit financial/disbursement data
+  const canEditFinancials = isCompanyAdmin;
 
   return (
     <div className="space-y-6 pb-12">
@@ -115,7 +120,7 @@ export default function JobDetail() {
          </div>
       )}
 
-      {!isHomeowner && (
+      {(isAdmin || isSalesRep) && (
         <>
             <JobStatusManager job={job} user={user} />
             <JobActionPanel job={job} user={user} />
@@ -128,10 +133,14 @@ export default function JobDetail() {
           <TabsTrigger value="photos">Photos & Docs</TabsTrigger>
           {isHomeowner && <TabsTrigger value="milestones">Milestones</TabsTrigger>}
           {isHomeowner && <TabsTrigger value="settlement_summary">Settlement</TabsTrigger>}
-          {canEditClaim && (
+          {canEditWorkflow && (
             <>
               <TabsTrigger value="contracts">Contracts</TabsTrigger>
               <TabsTrigger value="hygienist">Hygienist / Swab</TabsTrigger>
+            </>
+          )}
+          {isAdmin && (
+            <>
               <TabsTrigger value="claim">Claim & Settlement</TabsTrigger>
               <TabsTrigger value="disbursement">Profit & Payout</TabsTrigger>
             </>
@@ -161,8 +170,8 @@ export default function JobDetail() {
           <JobSettlementNumbers job={job} user={user} homeownerView={true} readonly={true} />
         </TabsContent>
 
-        {/* Admin / SalesRep full sections */}
-        {canEditClaim && (
+        {/* Workflow sections: Admin + SalesRep */}
+        {canEditWorkflow && (
           <>
             <TabsContent value="contracts" className="mt-6">
               <div className="space-y-6">
@@ -172,15 +181,21 @@ export default function JobDetail() {
             <TabsContent value="hygienist" className="mt-6">
               <JobHygienistSection job={job} user={user} />
             </TabsContent>
+          </>
+        )}
+
+        {/* Financial sections: Admin only (LocationAdmin gets read-only) */}
+        {isAdmin && (
+          <>
             <TabsContent value="claim" className="mt-6">
               <div className="space-y-6">
-                {isAdmin && <JobClaimSummaryCard job={job} />}
-                <JobClaimMilestones job={job} user={user} />
-                <JobSettlementNumbers job={job} user={user} />
+                <JobClaimSummaryCard job={job} />
+                <JobClaimMilestones job={job} user={user} readonly={!canEditFinancials} />
+                <JobSettlementNumbers job={job} user={user} readonly={!canEditFinancials} />
               </div>
             </TabsContent>
             <TabsContent value="disbursement" className="mt-6">
-              <JobDisbursement job={job} user={user} />
+              <JobDisbursement job={job} user={user} readonly={!canEditFinancials} />
             </TabsContent>
           </>
         )}

@@ -12,10 +12,9 @@ export const Permissions = {
             return user.company_id === job.company_id;
         }
 
-        // Location Admin: Can view all jobs in their location
+        // Location Admin: Can view all jobs in their company
         if (user.business_role === USER_ROLES.LocationAdmin) {
-            return user.company_id === job.company_id && 
-                   (!job.location_id || job.location_id === user.location_id);
+            return user.company_id === job.company_id;
         }
 
         // Sales Rep: Can view jobs they created/assigned

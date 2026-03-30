@@ -10,19 +10,27 @@ import { toast } from 'sonner';
 import { NotificationService } from '@/components/services/NotificationService';
 import { createAndSendStatusUpdate } from '@/components/services/StatusUpdateService';
 
-const DEMO_ALLOWED_STATUSES = [
+// All statuses admins can move to
+const ADMIN_ALLOWED_STATUSES = Object.values(JOB_STATUSES);
+
+// Sales reps can only move the early workflow stages
+const SALES_REP_ALLOWED_STATUSES = [
   JOB_STATUSES.LeadCreated,
   JOB_STATUSES.AssessmentDone,
   JOB_STATUSES.ContractSigned,
-  JOB_STATUSES.WorkInProgress,
-  JOB_STATUSES.WorkCompleted,
-  JOB_STATUSES.ContractorPaidCaseClosed
+  JOB_STATUSES.InitialDocumentationComplete,
 ];
 
 export default function JobStatusManager({ job, user }) {
   const [status, setStatus] = useState(job.current_status);
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
+
+  const isAdmin = user.business_role === 'CompanyAdmin' || user.business_role === 'LocationAdmin';
+  const isSalesRep = user.business_role === 'SalesRep';
+
+  // Admins see all statuses; SalesReps only see the early stages they're responsible for
+  const allowedStatuses = isAdmin ? ADMIN_ALLOWED_STATUSES : isSalesRep ? SALES_REP_ALLOWED_STATUSES : [];
 
   const handleUpdate = async () => {
     if (status === job.current_status) return;
@@ -66,12 +74,15 @@ export default function JobStatusManager({ job, user }) {
     }
   };
 
+  // Hide status manager if user has no allowed statuses to move to
+  if (allowedStatuses.length === 0) return null;
+
   return (
     <Card className="border-blue-100 bg-blue-50/30">
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-medium flex items-center gap-2">
             <RefreshCw className="w-4 h-4 text-blue-600" />
-            Update Job Status (Admin/Sales Only)
+            Update Job Status
         </CardTitle>
       </CardHeader>
       <CardContent className="flex items-center gap-4">
@@ -80,7 +91,7 @@ export default function JobStatusManager({ job, user }) {
                 <SelectValue placeholder="Select status..." />
             </SelectTrigger>
             <SelectContent>
-                {DEMO_ALLOWED_STATUSES.map((s) => (
+                {allowedStatuses.map((s) => (
                     <SelectItem key={s} value={s}>
                         {HUMAN_STATUSES[s]}
                     </SelectItem>
