@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, UserPlus, Shield, ShieldOff, KeyRound, AlertCircle, Copy, CheckCircle } from 'lucide-react';
+import { Loader2, UserPlus, Shield, ShieldOff, KeyRound, Mail } from 'lucide-react';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import toast from 'react-hot-toast';
 
@@ -19,7 +19,7 @@ export default function Users() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [tempPasswordDisplay, setTempPasswordDisplay] = useState(null);
+
 
   // Add User Form State
   const [newUser, setNewUser] = useState({
@@ -64,34 +64,38 @@ export default function Users() {
   // Mutations
   const addUserMutation = useMutation({
     mutationFn: async (userData) => {
-      const tempPassword = Math.random().toString(36).slice(-10).toUpperCase();
-      const newUserData = {
-        ...userData,
-        company_id: user.company_id,
-        temp_password: tempPassword,
-        email: userData.email.toLowerCase()
-      };
+      const email = userData.email.toLowerCase();
+      // Invite the user via the platform (creates account + sends invite email)
+      await base44.users.inviteUser(email, 'user');
       
-      const createdUser = await base44.entities.User.create(newUserData);
+      // After invite, find the created user record and set role + company
+      // Give it a moment for the record to be created
+      await new Promise(r => setTimeout(r, 1500));
+      const allU = await base44.entities.User.list();
+      const created = allU.find(u => u.email === email);
       
-      await base44.entities.UserAction.create({
-        user_id: user.id,
-        target_user_id: createdUser.id,
-        action_type: 'AddUser',
-        details: `Added ${userData.email} as ${userData.business_role}`,
-        timestamp: new Date().toISOString()
-      });
-      
-      return { user: createdUser, tempPassword };
+      if (created) {
+        await base44.entities.User.update(created.id, {
+          business_role: userData.business_role,
+          company_id: user.company_id,
+          full_name: userData.full_name || created.full_name || ''
+        });
+        await base44.entities.UserAction.create({
+          user_id: user.id,
+          target_user_id: created.id,
+          action_type: 'InviteSent',
+          details: `Invited ${email} as ${userData.business_role}`,
+          timestamp: new Date().toISOString()
+        });
+        return created;
+      }
+      return { email };
     },
-    onSuccess: ({ user: createdUser, tempPassword }) => {
+    onSuccess: (createdUser) => {
       queryClient.invalidateQueries(['allUsers']);
-      setTempPasswordDisplay({
-        email: createdUser.email,
-        password: tempPassword
-      });
-      toast.success(`User ${createdUser.email} created`);
+      toast.success(`Invite sent to ${createdUser.email}`);
       setNewUser({ email: '', full_name: '', business_role: 'SalesRep' });
+      setShowAddDialog(false);
     },
     onError: (error) => {
       toast.error(`Failed: ${error.message}`);
@@ -138,26 +142,24 @@ export default function Users() {
     }
   });
 
+  // Reset password sends a new invite so user can set their own password
   const resetPasswordMutation = useMutation({
-    mutationFn: async (userId) => {
-      const tempPassword = Math.random().toString(36).slice(-10).toUpperCase();
-      await base44.entities.User.update(userId, { temp_password: tempPassword });
+    mutationFn: async (targetUserId) => {
+      const targetUser = allUsers.find(u => u.id === targetUserId);
+      if (!targetUser?.email) throw new Error('User not found');
+      // Re-invite sends a fresh login link
+      await base44.users.inviteUser(targetUser.email, targetUser.role || 'user');
       await base44.entities.UserAction.create({
         user_id: user.id,
-        target_user_id: userId,
+        target_user_id: targetUserId,
         action_type: 'ResetPassword',
-        details: 'Password reset',
+        details: 'Password reset invite sent',
         timestamp: new Date().toISOString()
       });
-      return tempPassword;
+      return targetUser.email;
     },
-    onSuccess: (tempPassword, userId) => {
-      const targetUser = allUsers.find(u => u.id === userId);
-      setTempPasswordDisplay({
-        email: targetUser?.email,
-        password: tempPassword
-      });
-      toast.success('Password reset');
+    onSuccess: (email) => {
+      toast.success(`Password reset invite sent to ${email}`);
     },
     onError: (error) => {
       toast.error(`Failed: ${error.message}`);
@@ -170,11 +172,6 @@ export default function Users() {
       return;
     }
     addUserMutation.mutate(newUser);
-  };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Copied');
   };
 
   if (!user) {
@@ -202,18 +199,6 @@ export default function Users() {
           Add User
         </Button>
       </div>
-
-      <Card className="border-amber-200 bg-amber-50">
-        <CardContent className="pt-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-            <div className="text-sm text-amber-800">
-              <p className="font-semibold mb-1">Backend Functions Required</p>
-              <p>Full access control (login gate, rate limiting, server-side role enforcement, email invites) requires backend functions. Enable in Settings to unlock these features.</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -328,8 +313,10 @@ export default function Users() {
                           size="sm"
                           variant="ghost"
                           onClick={() => resetPasswordMutation.mutate(u.id)}
+                          disabled={resetPasswordMutation.isPending}
+                          title="Send password reset invite email"
                         >
-                          <KeyRound className="w-3 h-3 mr-1" />
+                          <Mail className="w-3 h-3 mr-1" />
                           Reset
                         </Button>
                       </div>
@@ -389,67 +376,16 @@ export default function Users() {
             </Button>
             <Button onClick={handleAddUser} disabled={addUserMutation.isPending}>
               {addUserMutation.isPending ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</>
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending Invite...</>
               ) : (
-                'Create User'
+                'Send Invite'
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {tempPasswordDisplay && (
-        <Dialog open={!!tempPasswordDisplay} onOpenChange={() => setTempPasswordDisplay(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                User Created
-              </DialogTitle>
-              <DialogDescription>Share this temporary password with the user</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Email</Label>
-                <div className="flex gap-2 mt-1">
-                  <Input value={tempPasswordDisplay.email} readOnly />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => copyToClipboard(tempPasswordDisplay.email)}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-              <div>
-                <Label>Temporary Password</Label>
-                <div className="flex gap-2 mt-1">
-                  <Input 
-                    value={tempPasswordDisplay.password} 
-                    readOnly 
-                    className="font-mono text-lg"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => copyToClipboard(tempPasswordDisplay.password)}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="text-sm text-amber-700 bg-amber-50 p-3 rounded border border-amber-200">
-                <AlertCircle className="w-4 h-4 inline mr-2" />
-                This password will not be shown again. Copy it before closing.
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={() => setTempPasswordDisplay(null)}>Done</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+
     </div>
   );
 }
