@@ -104,7 +104,6 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
 
             {user.business_role === USER_ROLES.CompanyAdmin && (
                 <>
-                    <NavItem icon={LayoutDashboard} label="All Jobs (Debug)" path="AdminJobsDebug" tourId="sidebar-jobs" />
                     <NavItem icon={UserCog} label="Users" path="Users" tourId="sidebar-users" />
                     <NavItem icon={Shield} label="Company Settings" path="CompanySettings" />
                 </>
