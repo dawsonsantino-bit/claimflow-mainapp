@@ -52,7 +52,7 @@ function InnerLayout({ children }) {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <span className="ml-3 font-bold text-slate-900">CaseManager</span>
+            <span className="ml-3 font-bold text-slate-900">ClaimFlow</span>
           </header>
 
           <main className="flex-1 overflow-y-auto p-4 lg:p-8">

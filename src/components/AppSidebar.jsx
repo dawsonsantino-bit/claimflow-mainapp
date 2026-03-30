@@ -63,7 +63,7 @@ export default function AppSidebar({ user, isOpen, setIsOpen }) {
           {/* Header */}
           <div className="h-16 flex items-center px-6 border-b border-slate-100">
             <Shield className="w-6 h-6 text-slate-900 mr-2" />
-            <span className="font-bold text-lg">CaseManager</span>
+            <span className="font-bold text-lg">ClaimFlow</span>
             <button 
               className="ml-auto lg:hidden"
               onClick={() => setIsOpen(false)}
