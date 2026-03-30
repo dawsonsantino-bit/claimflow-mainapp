@@ -9,9 +9,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, UserPlus, Shield, ShieldOff, KeyRound, Mail } from 'lucide-react';
+import { Loader2, UserPlus, Shield, ShieldOff, KeyRound, Mail, Eye, EyeOff } from 'lucide-react';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import toast from 'react-hot-toast';
+
+function generatePassword() {
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  const numbers = '0123456789';
+  const chars = [
+    ...Array.from({ length: 5 }, () => letters[Math.floor(Math.random() * letters.length)]),
+    ...Array.from({ length: 5 }, () => numbers[Math.floor(Math.random() * numbers.length)])
+  ];
+  // Shuffle
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
 
 export default function Users() {
   const queryClient = useQueryClient();
@@ -19,6 +34,7 @@ export default function Users() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [visiblePasswords, setVisiblePasswords] = useState({});
 
 
   // Add User Form State
@@ -65,11 +81,12 @@ export default function Users() {
   const addUserMutation = useMutation({
     mutationFn: async (userData) => {
       const email = userData.email.toLowerCase();
+      const password = generatePassword();
+
       // Invite the user via the platform (creates account + sends invite email)
       await base44.users.inviteUser(email, 'user');
       
-      // After invite, find the created user record and set role + company
-      // Give it a moment for the record to be created
+      // Wait for the record to be created
       await new Promise(r => setTimeout(r, 1500));
       const allU = await base44.entities.User.list();
       const created = allU.find(u => u.email === email);
@@ -78,8 +95,17 @@ export default function Users() {
         await base44.entities.User.update(created.id, {
           business_role: userData.business_role,
           company_id: user.company_id,
-          full_name: userData.full_name || created.full_name || ''
+          full_name: userData.full_name || created.full_name || '',
+          temp_password: password
         });
+
+        // Send password via email
+        await base44.integrations.Core.SendEmail({
+          to: email,
+          subject: 'Your ClaimFlow Account Credentials',
+          body: `Hello ${userData.full_name || email},\n\nYour account has been created on ClaimFlow.\n\nUsername: ${email}\nTemporary Password: ${password}\n\nPlease log in and change your password at your earliest convenience.\n\nRole: ${userData.business_role}\n\nBest regards,\nClaimFlow Team`
+        });
+
         await base44.entities.UserAction.create({
           user_id: user.id,
           target_user_id: created.id,
@@ -87,13 +113,13 @@ export default function Users() {
           details: `Invited ${email} as ${userData.business_role}`,
           timestamp: new Date().toISOString()
         });
-        return created;
+        return { ...created, temp_password: password };
       }
       return { email };
     },
     onSuccess: (createdUser) => {
       queryClient.invalidateQueries(['allUsers']);
-      toast.success(`Invite sent to ${createdUser.email}`);
+      toast.success(`Credentials emailed to ${createdUser.email}`);
       setNewUser({ email: '', full_name: '', business_role: 'SalesRep' });
       setShowAddDialog(false);
     },
@@ -165,6 +191,10 @@ export default function Users() {
       toast.error(`Failed: ${error.message}`);
     }
   });
+
+  const togglePasswordVisibility = (userId) => {
+    setVisiblePasswords(prev => ({ ...prev, [userId]: !prev[userId] }));
+  };
 
   const handleAddUser = () => {
     if (!newUser.email) {
@@ -251,6 +281,7 @@ export default function Users() {
                 <TableRow>
                   <TableHead>Email</TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>Temp Password</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last Login</TableHead>
@@ -262,6 +293,23 @@ export default function Users() {
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.email}</TableCell>
                     <TableCell>{u.full_name || '-'}</TableCell>
+                    <TableCell>
+                      {u.temp_password ? (
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono text-sm">
+                            {visiblePasswords[u.id] ? u.temp_password : '••••••••••'}
+                          </span>
+                          <button
+                            onClick={() => togglePasswordVisibility(u.id)}
+                            className="text-slate-400 hover:text-slate-700"
+                          >
+                            {visiblePasswords[u.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-xs">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Select
                         value={u.business_role}
