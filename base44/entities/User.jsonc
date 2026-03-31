@@ -1,0 +1,98 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "company_id": {
+      "type": "string",
+      "description": "ID of the company the user belongs to"
+    },
+    "location_id": {
+      "type": "string",
+      "description": "ID of the primary location"
+    },
+    "business_role": {
+      "type": "string",
+      "enum": [
+        "CompanyAdmin",
+        "LocationAdmin",
+        "SalesRep",
+        "Hygienist",
+        "Attorney",
+        "Contractor",
+        "Homeowner"
+      ],
+      "description": "User's role in the system"
+    },
+    "is_suspended": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the user account is suspended"
+    },
+    "failed_login_count": {
+      "type": "integer",
+      "default": 0,
+      "description": "Number of consecutive failed login attempts"
+    },
+    "last_failed_login_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last failed login"
+    },
+    "last_login_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last successful login"
+    },
+    "invite_token": {
+      "type": "string",
+      "description": "Token for user invitation"
+    },
+    "invite_token_expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Expiry timestamp for invite token"
+    },
+    "temp_password": {
+      "type": "string",
+      "description": "Temporary password for manual setup (no SMTP)"
+    },
+    "onboarding_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether user has completed onboarding tour"
+    },
+    "onboarding_step": {
+      "type": "integer",
+      "default": 0,
+      "description": "Current step in onboarding process"
+    },
+    "help_tips_dismissed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "List of dismissed help tip IDs"
+    },
+    "tutorial_view_count": {
+      "type": "integer",
+      "default": 0,
+      "description": "Number of times the guided tutorial has been shown"
+    },
+    "tutorial_skipped": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the user has skipped the guided tutorial"
+    }
+  },
+  "required": [
+    "company_id",
+    "location_id",
+    "business_role",
+    "last_failed_login_at",
+    "last_login_at",
+    "invite_token",
+    "invite_token_expires_at",
+    "temp_password"
+  ]
+}
