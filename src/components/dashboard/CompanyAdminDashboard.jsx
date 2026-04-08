@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import JobList from '@/components/job/JobList';
 import { HUMAN_STATUSES } from '@/components/job/JobConstants';
 import { base44 } from '@/api/base44Client';
 import { AlertTriangle } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ContextualHelp from '@/components/onboarding/ContextualHelp';
+import ActiveJobsPanel from '@/components/dashboard/ActiveJobsPanel';
+import ClosedJobsPanel from '@/components/dashboard/ClosedJobsPanel';
 
 function StagnantJobsAlert({ user }) {
     const [stagnantJobs, setStagnantJobs] = useState([]);
@@ -52,17 +52,9 @@ function StagnantJobsAlert({ user }) {
 }
 
 export default function CompanyAdminDashboard({ user }) {
-  const [showOpenOnly, setShowOpenOnly] = useState(false);
-
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
-        <div className="flex items-center space-x-2">
-            <Switch id="open-claims" checked={showOpenOnly} onCheckedChange={setShowOpenOnly} />
-            <Label htmlFor="open-claims">Open Claims Only</Label>
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
 
       <ContextualHelp
         tipId="admin-dashboard-intro"
@@ -72,13 +64,18 @@ export default function CompanyAdminDashboard({ user }) {
 
       <StagnantJobsAlert user={user} />
 
-      <JobList 
-        title={showOpenOnly ? "Open Claims" : "All Jobs"}
-        queryFilter={{ 
-            company_id: user.company_id, 
-            ...(showOpenOnly ? { is_closed: false } : {}) 
-        }} 
-      />
+      <Tabs defaultValue="active">
+        <TabsList>
+          <TabsTrigger value="active">Active Jobs</TabsTrigger>
+          <TabsTrigger value="closed">Closed Jobs</TabsTrigger>
+        </TabsList>
+        <TabsContent value="active" className="mt-4">
+          <ActiveJobsPanel user={user} />
+        </TabsContent>
+        <TabsContent value="closed" className="mt-4">
+          <ClosedJobsPanel user={user} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
