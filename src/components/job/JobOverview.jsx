@@ -46,6 +46,7 @@ export default function JobOverview({ job, user }) {
             <InfoRow icon={Mail} label="Email" value={job.property_email} />
             <InfoRow icon={Activity} label="Loss Type" value={job.loss_type} />
             <InfoRow icon={Calendar} label="Created" value={job.lead_created_at ? format(new Date(job.lead_created_at), 'PPP') : '-'} />
+            <InfoRow icon={User} label="Claim Created By" value={job.created_by || '-'} />
           </CardContent>
         </Card>
 
