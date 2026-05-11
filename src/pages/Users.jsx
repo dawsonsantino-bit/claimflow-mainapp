@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, UserPlus, Shield, ShieldOff, KeyRound, Mail, Eye, EyeOff } from 'lucide-react';
+import { Loader2, UserPlus, Shield, ShieldOff, KeyRound, Mail, Eye, EyeOff, Copy, CheckCircle } from 'lucide-react';
 import { USER_ROLES } from '@/components/job/JobConstants';
 import toast from 'react-hot-toast';
 
@@ -35,6 +35,7 @@ export default function Users() {
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [createdUserCreds, setCreatedUserCreds] = useState(null);
 
 
   // Add User Form State
@@ -99,12 +100,17 @@ export default function Users() {
           temp_password: password
         });
 
-        // Send password via email
-        await base44.integrations.Core.SendEmail({
-          to: email,
-          subject: 'Your ClaimFlow Account Credentials',
-          body: `Hello ${userData.full_name || email},\n\nYour account has been created on ClaimFlow.\n\nUsername: ${email}\nTemporary Password: ${password}\n\nClick here to log in:\nhttps://claimflow.base44.app\n\nPlease log in and change your password at your earliest convenience.\n\nRole: ${userData.business_role}\n\nBest regards,\nClaimFlow Team`
-        });
+        // Try to send credentials email — may fail if user isn't fully registered yet
+        try {
+          await base44.functions.invoke('sendOnboardingEmail', {
+            email,
+            full_name: userData.full_name || '',
+            business_role: userData.business_role,
+            password
+          });
+        } catch (emailErr) {
+          console.warn('Credentials email could not be sent automatically:', emailErr.message);
+        }
 
         await base44.entities.UserAction.create({
           user_id: user.id,
@@ -113,13 +119,13 @@ export default function Users() {
           details: `Invited ${email} as ${userData.business_role}`,
           timestamp: new Date().toISOString()
         });
-        return { ...created, temp_password: password };
+        return { ...created, temp_password: password, email };
       }
-      return { email };
+      return { email, temp_password: password };
     },
     onSuccess: (createdUser) => {
       queryClient.invalidateQueries(['allUsers']);
-      toast.success(`Credentials emailed to ${createdUser.email}`);
+      setCreatedUserCreds({ email: createdUser.email, password: createdUser.temp_password });
       setNewUser({ email: '', full_name: '', business_role: 'SalesRep' });
       setShowAddDialog(false);
     },
@@ -376,6 +382,61 @@ export default function Users() {
           )}
         </CardContent>
       </Card>
+
+      {/* Credentials display modal shown after user is created */}
+      <Dialog open={!!createdUserCreds} onOpenChange={() => setCreatedUserCreds(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              User Created Successfully
+            </DialogTitle>
+            <DialogDescription>
+              Share these credentials with the new user. A platform invite email has also been sent.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+              <div>
+                <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Email / Username</p>
+                <p className="font-medium text-slate-900">{createdUserCreds?.email}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Temporary Password</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-mono text-lg font-bold text-slate-900 tracking-widest">{createdUserCreds?.password}</p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdUserCreds?.password || '');
+                      toast.success('Password copied!');
+                    }}
+                    className="text-slate-400 hover:text-slate-700"
+                    title="Copy password"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-3">
+              ⚠️ Copy these credentials now — you won't be able to see the password again (it is stored in the Temp Password column until changed).
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                const text = `ClaimFlow Login\nURL: https://claimflow.base44.app\nEmail: ${createdUserCreds?.email}\nPassword: ${createdUserCreds?.password}`;
+                navigator.clipboard.writeText(text);
+                toast.success('Credentials copied to clipboard!');
+              }}
+              variant="outline"
+            >
+              <Copy className="w-4 h-4 mr-2" /> Copy All
+            </Button>
+            <Button onClick={() => setCreatedUserCreds(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent>
