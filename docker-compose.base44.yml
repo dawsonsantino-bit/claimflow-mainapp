@@ -1,0 +1,20 @@
+services:
+  web:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - .:/app
+      # keep container node_modules separate from host
+      - web_node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "3000:5173"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      # Base44 platform connection (public app id from base44/.app.jsonc; backend is the public Base44 API)
+      - VITE_BASE44_APP_ID=69a86966f32c9f87a8cef502
+      - VITE_BASE44_BACKEND_URL=https://base44.app
+    restart: unless-stopped
+
+volumes:
+  web_node_modules:
